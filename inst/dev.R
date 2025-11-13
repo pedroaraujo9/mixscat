@@ -1,9 +1,103 @@
 devtools::load_all()
 devtools::document()
 
+data = sim_data$data
+time = data$time
+id = data$id
+x = NULL
+w = NULL
+z = sim_data$data$true_z
+G = 3
+M = 3
+n_basis = 5
+intercept = FALSE
+
+model_data = create_model_data(
+  time = time,
+  id = id,
+  x = x,
+  z = z,
+  w = w,
+  G = G,
+  M = M,
+  n_basis = n_basis,
+  intercept = intercept
+)
+
+priors = list(
+  epsilon_w = 1,
+  beta_sd = sqrt(10),
+  mu_sd = sqrt(10),
+  sigma_a = 1,
+  sigma_b = 1
+)
+
+config = list(
+  bounds = c(0.01, 10),
+  n_points = 10,
+  n_start_iters = NULL,
+  epsilon_w = 1,
+  beta_sd = sqrt(10),
+  mu_sd = sqrt(10),
+  sigma_a = 1,
+  sigma_b = 1
+)
+
+#### single core ####
+verbose = FALSE
+seed = 2
+lambda = 1
+n_start = 5
+iters = 20
+n_cores = 1
+
+inits = find_init(
+  n_start = n_start,
+  iters = iters,
+  n_cores = n_cores,
+  model_data = model_data,
+  lambda = lambda,
+  init_list = init_list,
+  priors = priors,
+  seed = seed
+) |>
+  expect_no_error() |>
+  expect_no_message()
 
 
+w = inits$init_list$w[1,]
 
+z_ham_dist = compute_hamming(z = z, model_data = model_data)
+w = hclust(z_ham_dist, method = "ward.D") |> cutree(k = model_data$M)
+
+mclust::adjustedRandIndex(w, sim_data$true_w)
+mclust::adjustedRandIndex(w2, sim_data$true_w)
+
+
+lambda_grid = seq(config$bounds[1], config$bounds[2], length.out = config$n_points)
+lambda_grid
+
+
+obj_fun = function(lambda) {
+  fit = find_map(
+    z = z,
+    w = w,
+    lambda = lambda,
+    stan_model = stan_model,
+    model_data = model_data,
+    fixed_sd = config$beta_sd
+  )
+
+  return(list(Score = fit$opt_fit$par$penal_ll))
+
+}
+
+penal = purrr::map_dbl(lambda_grid, ~{
+  obj_fun(.x)$Score
+})
+
+best_lambda = lambda_grid[which.max(penal)]
+best_lambda
 
 
 G = 3

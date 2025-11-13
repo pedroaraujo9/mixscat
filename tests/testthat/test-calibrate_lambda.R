@@ -72,6 +72,7 @@ test_that("z and w known", {
   M = NULL
   n_basis = 10
   intercept = FALSE
+  n_cores = 1
 
   model_data = create_model_data(
     time = time,
@@ -89,7 +90,8 @@ test_that("z and w known", {
     z = z,
     w = w,
     model_data = model_data,
-    single_group = FALSE,
+    lambda_hamming = FALSE,
+    n_cores = n_cores,
     config = config
   ) |> expect_no_error() |>
     expect_no_message()
@@ -120,6 +122,7 @@ test_that("z known and w unknown", {
   M = 5
   n_basis = 10
   intercept = FALSE
+  n_cores = 2
 
   model_data = create_model_data(
     time = time,
@@ -137,7 +140,8 @@ test_that("z known and w unknown", {
     z = z,
     w = w,
     model_data = model_data,
-    single_group = FALSE,
+    lambda_hamming = TRUE,
+    n_cores = n_cores,
     config = config
   ) |> expect_no_error() |>
     expect_no_message()
@@ -146,10 +150,14 @@ test_that("z known and w unknown", {
     z = z,
     w = w,
     model_data = model_data,
-    single_group = TRUE,
+    lambda_hamming = FALSE,
+    n_cores = n_cores,
     config = config
   ) |> expect_no_error() |>
     expect_no_message()
+
+  lambda_opt2$best_lambda
+  lambda_opt3$best_lambda
 
 })
 
@@ -193,7 +201,8 @@ test_that("z unknown and w known", {
     z = z,
     w = w,
     model_data = model_data,
-    config = config
+    config = config,
+    n_cores = 1,
   ) |> expect_no_error() |>
     expect_no_message()
 
@@ -242,6 +251,7 @@ test_that("both z unknown and w known", {
     z = z,
     w = w,
     model_data = model_data,
+    n_cores = 1,
     config = config
   ) |> expect_no_error() |>
     expect_no_message()
