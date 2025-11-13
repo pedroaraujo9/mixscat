@@ -1,0 +1,443 @@
+gv = c(
+  ".", "G", "M", "nvars", "w", "time", "log_penal",
+  "li", "ui", "id", "logp_z", "lambda", "model", "mode_diff",
+  "min_id", "max_id", "mid_point"
+)
+
+utils::globalVariables(gv)
+
+#' Generate Dummy (Indicator) Matrix
+#'
+#' Creates a dummy variable (indicator) matrix for a categorical variable, with an option to include an intercept column.
+#'
+#' @param x Integer vector of categories (1-based).
+#' @param n_cat Integer. Number of categories.
+#' @param intercept Logical. If TRUE, includes an intercept column. Default is FALSE.
+#'
+#' @return Numeric matrix of dummy variables.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' gen_dummy(c(1, 2, 3), n_cat = 3, intercept = TRUE)
+#' }
+gen_dummy = function(x, n_cat, intercept = FALSE) {
+
+  x = factor(x, levels = 1:n_cat)
+
+  if(intercept == FALSE) {
+
+    if(n_cat == 1) {
+      X = cbind(rep(1, length(x)))
+
+    }else{
+      X = model.matrix( ~ -1 + x)
+      X = X[1:nrow(X), ]
+    }
+
+  }else{
+
+    if(n_cat == 1) {
+      X = cbind(rep(1, length(x)))
+
+    }else{
+      X = model.matrix( ~ x)
+      X = X[1:nrow(X), ]
+    }
+
+  }
+
+  colnames(X) = NULL
+  rownames(X) = NULL
+
+  return(X)
+}
+
+#' Indices of Non-Penalized Basis Functions
+#'
+#' Generates indices for non-penalized basis functions across groups or classes.
+#'
+#' @param n_basis Integer. Number of basis functions per group.
+#' @param M Integer. Number of groups or classes.
+#' @param order Integer. Order of difference for penalization. Default is 1.
+#'
+#' @return Integer vector of indices.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' gen_notpen_index(5, 3, order = 2)
+#' }
+gen_notpen_index = function(n_basis, M, order = 1) {
+  notpen_index = lapply(1:M, function(k){
+    (k -1) * n_basis + 1:(order)
+  }) %>% do.call(c, .)
+  return(notpen_index)
+}
+
+#' Indices for Grouped Basis Functions
+#'
+#' Creates a list of index vectors for basis functions grouped by class.
+#'
+#' @param n_basis Integer. Number of basis functions per group.
+#' @param M Integer. Number of groups.
+#'
+#' @return List of integer vectors, one per group.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' gen_basis_index(5, 3)
+#' }
+gen_basis_index = function(n_basis, M) {
+  lapply(1:M, function(k){
+    (((k-1)*(n_basis) + 1):(k * (n_basis)))
+  })
+}
+
+#' Generate Inverse Covariance Matrices for Penalized Coefficients
+#'
+#' Creates a list of diagonal inverse covariance matrices for each class (except the last).
+#'
+#' @param lambda Numeric matrix or vector of penalty parameters.
+#' @param model_data List. Model structure (see create_model_data).
+#' @param fixed_sd Numeric. Standard deviation for non-penalized coefficients. Default is 100.
+#'
+#' @return List of diagonal matrices.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' gen_inv_cov(c(1, 2, 3), model_data = list(), fixed_sd = 100)
+#' }
+gen_inv_cov = function(lambda, model_data, fixed_sd = 100) {
+
+  G = model_data$G
+  M = model_data$M
+  n_basis = model_data$n_basis
+  notpen_index = model_data$notpen_index
+  n_id = model_data$n_id
+  nD = model_data$nD
+  lambda = cbind(lambda)
+
+  var_vec = rep((lambda), each = n_basis * M)
+  D = rep(1/diag(nD), times = M)
+  var_vec = var_vec * D
+  var_vec[notpen_index] = (fixed_sd^2)
+  prec_matrix = diag(1/var_vec)
+
+  inv_cov_list = lapply(1:(G-1), function(g){prec_matrix})
+  return(inv_cov_list)
+
+}
+
+#' Regularized Design Matrix for Cluster-Specific Effects
+#'
+#' Constructs a design matrix for cluster-specific basis coefficients.
+#'
+#' @param w_vec Integer vector. Cluster assignment for each row.
+#' @param M Integer. Number of clusters.
+#' @param B_expand Matrix. Basis expansion for all clusters.
+#' @param intercept Logical. If TRUE, includes an intercept column. Default is FALSE.
+#'
+#' @return Numeric matrix, same shape as B_expand.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' gen_reg_matrix(c(1, 2, 3), 3, matrix(1, 3, 3), intercept = TRUE)
+#' }
+gen_reg_matrix = function(w_vec, M, B_expand, intercept = FALSE) {
+
+  n_basis = ncol(B_expand)/(M)
+
+  W = gen_dummy(w_vec, n_cat = M, intercept = intercept)
+  W_expand = W[, rep(1:M, each = n_basis)]
+
+  X = B_expand * W_expand
+
+  return(X)
+}
+
+#' Posterior Summary Statistic by Group
+#'
+#' Computes a summary statistic (e.g., mean) across posterior samples for each group.
+#'
+#' @param sample 3D numeric array: iterations x items x groups.
+#' @param stat_function Function. Statistical function to apply (e.g., mean). Default is mean.
+#' @param ... Additional arguments passed to the statistical function.
+#'
+#' @return Numeric matrix: items x groups.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' comp_post_stat(array(1:27, dim = c(3, 3, 3)), stat_function = mean)
+#' }
+comp_post_stat = function(sample, stat_function = mean, ...) {
+  if(!is.null(sample)) {
+    est = lapply(1:dim(sample)[3], function(g){
+      sample[, , g] |> apply(MARGIN = 2, FUN = stat_function, ...)
+    }) %>%
+      do.call(cbind, .)
+  }else{
+    est = NULL
+  }
+
+  return(est)
+}
+
+#' Most Frequent Class Assignment (Posterior Mode)
+#'
+#' Computes the most frequent class for each item across samples.
+#'
+#' @param sample Matrix or array: iterations x items.
+#'
+#' @return Integer vector of modal class assignments.
+#' @keywords internal
+#' @examples
+#' \dontrun{
+#' comp_class(matrix(sample(1:3, 30, replace = TRUE), nrow = 10))
+#' }
+comp_class = function(sample) {
+
+  class = apply(
+    sample,
+    MARGIN = 2,
+    FUN = function(x) x |> table() |> which.max() |> names() |> as.integer()
+  )
+
+  return(class)
+
+}
+
+#' Convert Posterior Summary Matrix to Long Format
+#'
+#' Internal: Convert summary matrix to tidy long-format tibble for plotting/analysis.
+#'
+#' @param summ_matrix Numeric matrix. Posterior summary (e.g., means).
+#' @param col_name Character. Name for summary column.
+#' @param time Numeric/integer vector. Time points.
+#' @param w Integer/factor vector. Group labels.
+#'
+#' @return Tibble in long format: time, w, cat, summary.
+#' @importFrom tibble as_tibble
+#' @importFrom dplyr mutate
+#' @importFrom tidyr gather
+#' @importFrom stringr str_replace
+#' @keywords internal
+trans_summ_prob = function(summ_matrix, col_name, time, w) {
+  summ_matrix |>
+    as.data.frame() |>
+    tibble::as_tibble() |>
+    dplyr::mutate(time = time, w = w) |>
+    tidyr::gather(cat, {{col_name}}, -time, -w) |>
+    dplyr::mutate(cat = str_replace(cat, "V", ""))
+}
+
+#' Compute Model Selection Metrics from MCMC Runs
+#'
+#' Internal: Calculate AICM, DIC and BICM metrics based on penalized log-posterior samples.
+#'
+#' @param runs List of MCMC run objects. Each element must contain a `logpost` matrix
+#'   with column `"penal_logpost"`.
+#' @param n Integer. Number of observations (overwritten if `model_data_min$z` is present).
+#' @param model_data_min List. Minimal model data; must include either `n` (if `z` is `NULL`)
+#'   or `n_id` (if `z` is present).
+#'
+#' @return List with numeric vectors:
+#' \describe{
+#'   \item{l_mean}{Mean penalized log-posterior for each run.}
+#'   \item{l_var}{Variance of penalized log-posterior for each run.}
+#'   \item{AICM}{Akaike Information Criterion for MCMC.}
+#'   \item{BICM}{Bayesian Information Criterion for MCMC.}
+#' }
+#' @importFrom purrr map_dbl
+#' @importFrom stats var
+#' @keywords internal
+comp_metrics = function(runs, n, model_data_min) {
+
+  if(is.null(model_data_min$z)) {
+    n = model_data_min$n
+  }else{
+    n = model_data_min$n_id
+  }
+
+  l_mean = runs %>% purrr::map_dbl(~{mean(.x$logpost[, "penal_logpost"])})
+  l_var = runs %>% purrr::map_dbl(~{stats::var(.x$logpost[, "penal_logpost"])})
+
+  AICM = -2*(l_mean - l_var)
+  BICM = -2*(l_mean - (log(n)-1)*l_var)
+
+  l_post = runs %>% purrr::map_dbl(~{.x$logpost_est[1]})
+  pp = l_post - l_mean
+  DIC2 = -2*(l_mean - pp)
+  DIC3 = -2*(l_mean - (log(n)-1)*pp)
+
+  out = list(
+    l_mean = l_mean,
+    l_var = l_var,
+    l_post = l_post,
+    AICM = AICM,
+    BICM = BICM,
+    DIC2 = DIC2,
+    DIC3 = DIC3,
+    pp = pp
+  )
+
+  out
+
+}
+
+#' Format Model Selection Metrics
+#'
+#' Internal: Format the list of model selection metrics into a tibble.
+#'
+#' @param metrics_list List. Output from `comp_metrics`.
+#'
+#' @return A tibble with columns "G", "M", and the calculated metrics (l_mean, l_var, AICM, BICM).
+#' @importFrom tibble as_tibble
+#' @importFrom dplyr mutate
+#' @importFrom tidyr separate
+format_metrics = function(metrics_list) {
+
+  metrics_df = metrics_list %>%
+    as.data.frame() %>%
+    mutate(model = rownames(.)) %>%
+    tidyr::separate(model, into = c("G", "M"), sep = ",") |>
+    mutate(G = stringr::str_extract(G, "\\d{1,10}"),
+           M = stringr::str_extract(M, "\\d{1,10}"))
+  rownames(metrics_df) = NULL
+
+  return(metrics_df)
+}
+
+#' Filter MCMC Samples
+#'
+#' Internal: Filters an array of MCMC samples by applying a burn-in period and thinning rate.
+#'
+#' @param array A numeric array containing MCMC samples (first dimension is iterations).
+#' @param burn_in Integer. The number of initial iterations to discard.
+#' @param thin Integer. The thinning rate; keep every `thin` iteration after burn-in.
+#'
+#' @return A filtered numeric array, or `NULL` if the input array was `NULL`.
+#'   The dimensions of the output array will depend on the original array's dimensions.
+#'   For a 1D array, it returns a vector. For 2D and 3D arrays, it returns a matrix or array,
+#'   respectively.
+#' @keywords internal
+filter_array = function(array, burn_in, thin) {
+
+  if(!is.null(array)) {
+
+    array_dim = dim(array)
+    dim_len = length(array_dim)
+    iters = array_dim[1]
+    post_iters = seq(burn_in, iters, thin)
+
+    if(dim_len == 1) {
+      post_array = array[post_iters]
+    }else if(dim_len == 2) {
+      post_array = array[post_iters, ]
+    }else if(dim_len == 3) {
+      post_array = array[post_iters,,]
+    }
+
+    colnames(post_array)
+
+  }else{
+    post_array = NULL
+  }
+
+  return(post_array)
+}
+
+#' Generate Initial Sample Array
+#'
+#' Internal: Creates an empty array to store MCMC samples, initialized with optional initial values.
+#'
+#' @param iters Integer. The total number of iterations for the MCMC chain.
+#' @param dimension Integer vector. The dimensions of the array for each iteration's sample
+#'   (excluding the iteration dimension).
+#' @param sampler Function. An optional function to generate initial values if `init` is `NULL`.
+#' @param init Numeric array. Optional initial values for the first iteration.
+#'
+#' @return A numeric array of dimensions `c(iters, dimension)` with the first slice
+#'   (corresponding to the first iteration) potentially filled with `init`.
+#' @keywords internal
+gen_sample_array = function(iters, dimension, sampler = NULL, init = NULL) {
+
+  dim_len = length(dimension)
+  sample_array = array(dim = c(iters, dimension))
+
+
+  if(is.null(init)) {
+    init = sampler(prod(dimension))
+  }
+
+  if(dim_len == 0) {
+    sample_array[1] = init
+  }else if(dim_len == 1) {
+    sample_array[1,] = init
+  }else if(dim_len == 2) {
+    sample_array[1,,] = init
+  }
+
+  return(sample_array)
+
+}
+
+#' Create Minimal Model Data List
+#'
+#' Internal: Creates a reduced list containing essential elements from the full model data.
+#' This is used to pass a smaller object between functions when the full `model_data` is not required.
+#'
+#' @param model_data List. The full model data object (see `create_model_data`).
+#' @param M Integer. The number of clusters for the current model.
+#' @param G Integer. The number of categories (outcome levels) for the current model.
+#'
+#' @return A list containing a subset of the elements from `model_data` (`M`, `G`, `w`, `z`, `x`, `B`, `P`, `n_vars`, `n_id`, `n_time`, `n`).
+#' @keywords internal
+create_model_data_min = function(model_data, M, G) {
+  model_data_min = list(
+    B = model_data$B_unique,
+    P = model_data$nD,
+    n_vars = model_data$n_vars,
+    n_id = model_data$n_id,
+    n_time = model_data$n_time,
+    n = model_data$n
+  )
+
+  return(model_data_min)
+}
+
+#' Compute Hamming Distance
+#'
+#' Internal: Computes the Hamming distance between sequences represented in a vector `z`.
+#'
+#' @param z Integer vector. The sequence data, flattened (individuals x time points).
+#' @param model_data List. The model data object, containing `n_time` and `n_id`.
+#'
+#' @return A `dist` object containing the pairwise Hamming distances between sequences.
+#' @importFrom TraMineR seqdef seqdist
+#' @keywords internal
+compute_hamming = function(z, model_data) {
+  n_time = model_data$n_time
+  n_id = model_data$n_id
+
+  z_seq_matrix = matrix(z, ncol = n_time, nrow = n_id, byrow = T)
+
+  z_ham_dist = diss = suppressMessages(
+    suppressWarnings(
+      z_seq_matrix |>
+        TraMineR::seqdef() |>
+        TraMineR::seqdist(, method = "HAM") |>
+        as.dist()
+    )
+  )
+
+  return(z_ham_dist)
+}
+
+format_best_lambda = function(best_lambda_list) {
+  best_lambda_list %>%
+    map_dbl(~{.x}) %>%
+    data.frame(model = names(.), lambda = .) %>%
+    tidyr::separate(col = model, into = c("G", "M"), sep = "\\,") %>%
+    mutate(G = stringr::str_remove(G, "G=") %>% as.integer(),
+           M = stringr::str_remove(M, " M=") %>% as.integer()) %>%
+    as_tibble()
+}
