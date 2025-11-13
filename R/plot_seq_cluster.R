@@ -75,7 +75,7 @@ plot_seq_cluster = function(fit = NULL,
       data = mode_change,
       ggplot2::aes(x = time - 0.5, xend = time - 0.5, y = min_id - 0.5, yend = max_id + 0.5),
       inherit.aes = F,
-      color = "white", linetype = 1
+      color = "black", linetype = 1
     )
 
   }else{
@@ -121,10 +121,10 @@ plot_seq_cluster = function(fit = NULL,
       hjust = ifelse(is.null(label_hjust), -0.3, label_hjust),
       angle = 0
     ) +
-    ggplot2::coord_cartesian(clip = 'off') + # allow text outside plot
+    ggplot2::coord_cartesian(clip = 'off') +
     ggplot2::theme(
       legend.position = "top",
-      plot.margin = ggplot2::margin(5, 60, 5, 5) # extra space on right
+      plot.margin = ggplot2::margin(5, 60, 5, 5)
     )
 
 }

@@ -2,6 +2,10 @@ devtools::load_all()
 devtools::document()
 
 
+
+
+
+
 G = 3
 M = c(2, 3, 4)
 z = sim_data$data$true_z %>% factor(labels = c("A", "B", "C"))
