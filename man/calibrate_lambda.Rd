@@ -8,7 +8,6 @@ calibrate_lambda(
   z = NULL,
   w = NULL,
   model_data,
-  single_group = FALSE,
   config = list(bounds = c(0.01, 10), n_points = 20, n_start_iters = 20, lambda_start =
     1, epsilon_w = 1, beta_sd = sqrt(10), mu_sd = sqrt(10), sigma_a = 1, sigma_b = 1)
 )
@@ -20,8 +19,6 @@ calibrate_lambda(
 
 \item{model_data}{A \code{model_data} object as returned by \code{create_model_data}, with basis, clustering, and index fields.}
 
-\item{single_group}{Logical. If \code{TRUE}, assumes a single group for clustering. Default is \code{FALSE}.}
-
 \item{config}{List of configuration options:
 \itemize{
 \item \code{bounds}: Numeric vector of length 2. Range of lambda to explore. Default is \code{c(0.01, 10)}.
@@ -30,6 +27,8 @@ calibrate_lambda(
 \item \code{lambda_start}: Initial lambda value for \code{find_init}. Default is 1.
 \item \code{epsilon_w}, \code{beta_sd}, \code{mu_sd}, \code{sigma_a}, \code{sigma_b}: Priors and scaling constants.
 }}
+
+\item{single_group}{Logical. If \code{TRUE}, assumes a single group for clustering. Default is \code{FALSE}.}
 }
 \value{
 A list with the following elements:

@@ -26,30 +26,40 @@ find_map = function(z,
                     model_data,
                     fixed_sd = 10) {
 
-  M = length(unique(w))
+
   n_basis = model_data$n_basis
+  M = model_data$M
 
   w = w |> factor(levels = 1:M)
+
   if(M > 1) {
+
     W = model.matrix(~ - 1 + w)
+
   }else{
+
     W = matrix(1, nrow = length(w), ncol = 1)
+
   }
 
 
   D = model_data$nD %>% diag() %>% .[-1]
 
   if(M == 1) {
+
     notpen_index = array(1)
+
   }else{
+
     notpen_index = model_data$notpen_index
+
   }
 
   data_list = list(
     n = model_data$n,
     G = model_data$G,
     M = M,
-    n_basis = model_data$n_basis,
+    n_basis = n_basis,
     order = model_data$order,
     notpen_index = notpen_index,
     spline_index = cbind(matrix(1:((M * n_basis)), ncol = M)[-1, ]),
@@ -108,10 +118,11 @@ find_map = function(z,
 calibrate_lambda = function(z = NULL,
                             w = NULL,
                             model_data,
-                            single_group = FALSE,
+                            lambda_hamming = TRUE,
+                            n_cores = 1,
                             config = list(
-                              bounds = c(0.01, 10),
-                              n_points = 20,
+                              bounds = c(0.01, 5),
+                              n_points = 30,
                               n_start_iters = 20,
                               lambda_start = 1,
                               epsilon_w = 1,
@@ -129,26 +140,28 @@ calibrate_lambda = function(z = NULL,
 
   if(!is.null(z) & is.null(w)) {
 
-    z_ham_dist = compute_hamming(z = z, model_data = model_data)
+    if(lambda_hamming == TRUE) {
 
-    if(single_group == TRUE) {
-      w = rep(1, model_data$n_id)
-    }else{
+      z_ham_dist = compute_hamming(z = z, model_data = model_data)
       w = hclust(z_ham_dist, method = "ward.D") |> cutree(k = model_data$M)
+
+    }else{
+
+      run = find_init(
+        n_start = config$n_points,
+        iters = config$n_start_iter,
+        n_cores = n_cores,
+        model_data = model_data,
+        lambda = config$lambda_start,
+        init_list = NULL,
+        priors = config,
+        seed = NULL
+      )
+
+      w = run$init_list$w[1,]
+
     }
 
-    # run = find_init(
-    #   n_start = config$n_points,
-    #   iters = config$n_start_iter,
-    #   n_cores = 1,
-    #   model_data = model_data,
-    #   lambda = config$lambda_start,
-    #   init_list = NULL,
-    #   priors = config,
-    #   seed = NULL
-    # )
-    #
-    # w = run$init_list$w[1,]
 
   }else if(is.null(z)){
 

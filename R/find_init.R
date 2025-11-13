@@ -83,11 +83,14 @@ find_init = function(n_start = 30,
   if(is.null(seed)) seed = sample(1:10000, size = 1)
   set.seed(seed)
 
-  ## define session
   if(n_cores > 1) {
+
     future::plan(future::multisession, workers = n_cores)
+
   }else{
+
     future::plan(future::sequential)
+
   }
 
   init_time = Sys.time()
