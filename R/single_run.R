@@ -60,7 +60,10 @@ single_run = function(model_data,
                       verbose = FALSE,
                       seed = NULL) {
 
-  if(is.null(seed)) seed = sample(1:10000, size = 1)
+  if(is.null(seed)){
+    seed = sample(1:10000, size = 1)
+  }
+
   set.seed(seed)
 
   M = model_data$M |> as.integer()

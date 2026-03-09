@@ -32,9 +32,11 @@ update_z = function(mu, sigma, w = NULL, alpha = NULL, model_data) {
 
   for (g in 1:G) {
     log_like[, g] = rowSums(
-      dnorm(x,
-            mean = matrix(mu[g, ], nrow = n, ncol = n_vars, byrow = T),
-            sd = sigma[g], log = TRUE)
+      dnorm(
+        x,
+        mean = matrix(mu[g, ], nrow = n, ncol = n_vars, byrow = T),
+        sd = sigma[g], log = TRUE
+      )
     )
 
     if(!is.null(w)) {
