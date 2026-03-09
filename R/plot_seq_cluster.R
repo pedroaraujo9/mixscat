@@ -75,7 +75,7 @@ plot_seq_cluster = function(fit = NULL,
       data = mode_change,
       ggplot2::aes(x = time - 0.5, xend = time - 0.5, y = min_id - 0.5, yend = max_id + 0.5),
       inherit.aes = F,
-      color = "black", linetype = 1
+      color = "white", linetype = 1
     )
 
   }else{
