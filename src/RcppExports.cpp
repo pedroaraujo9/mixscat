@@ -11,34 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// dmvnrm_arma_fast
-arma::vec dmvnrm_arma_fast(arma::mat const& x, arma::rowvec const& mean, arma::mat const& sigma, bool const logd);
-RcppExport SEXP _mixscat_dmvnrm_arma_fast(SEXP xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP logdSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat const& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< arma::rowvec const& >::type mean(meanSEXP);
-    Rcpp::traits::input_parameter< arma::mat const& >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< bool const >::type logd(logdSEXP);
-    rcpp_result_gen = Rcpp::wrap(dmvnrm_arma_fast(x, mean, sigma, logd));
-    return rcpp_result_gen;
-END_RCPP
-}
-// cpp_eval_ldnorm
-arma::vec cpp_eval_ldnorm(arma::mat x, arma::mat mu, arma::cube sigma, arma::uvec z);
-RcppExport SEXP _mixscat_cpp_eval_ldnorm(SEXP xSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP zSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type x(xSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< arma::cube >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< arma::uvec >::type z(zSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_eval_ldnorm(x, mu, sigma, z));
-    return rcpp_result_gen;
-END_RCPP
-}
 // mvrnormArma
 arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma);
 RcppExport SEXP _mixscat_mvrnormArma(SEXP nSEXP, SEXP muSEXP, SEXP sigmaSEXP) {
@@ -53,21 +25,21 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_compute_V
-arma::mat cpp_compute_V(arma::mat X, arma::vec omega, arma::mat inv_cov);
-RcppExport SEXP _mixscat_cpp_compute_V(SEXP XSEXP, SEXP omegaSEXP, SEXP inv_covSEXP) {
+arma::mat cpp_compute_V(arma::mat X, arma::vec omega, arma::mat precision_matrix);
+RcppExport SEXP _mixscat_cpp_compute_V(SEXP XSEXP, SEXP omegaSEXP, SEXP precision_matrixSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type omega(omegaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type inv_cov(inv_covSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_compute_V(X, omega, inv_cov));
+    Rcpp::traits::input_parameter< arma::mat >::type precision_matrix(precision_matrixSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_compute_V(X, omega, precision_matrix));
     return rcpp_result_gen;
 END_RCPP
 }
 // cpp_compute_m
-arma::mat cpp_compute_m(arma::mat V, arma::mat X, arma::vec z, arma::vec omega, arma::vec C, arma::vec center, arma::mat inv_cov);
-RcppExport SEXP _mixscat_cpp_compute_m(SEXP VSEXP, SEXP XSEXP, SEXP zSEXP, SEXP omegaSEXP, SEXP CSEXP, SEXP centerSEXP, SEXP inv_covSEXP) {
+arma::mat cpp_compute_m(arma::mat V, arma::mat X, arma::vec z, arma::vec omega, arma::vec C);
+RcppExport SEXP _mixscat_cpp_compute_m(SEXP VSEXP, SEXP XSEXP, SEXP zSEXP, SEXP omegaSEXP, SEXP CSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -76,15 +48,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type omega(omegaSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type C(CSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type center(centerSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type inv_cov(inv_covSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_compute_m(V, X, z, omega, C, center, inv_cov));
+    rcpp_result_gen = Rcpp::wrap(cpp_compute_m(V, X, z, omega, C));
     return rcpp_result_gen;
 END_RCPP
 }
-// sample_alpha
-arma::mat sample_alpha(arma::mat X, arma::vec omega, arma::mat inv_cov, arma::vec z, arma::vec C, arma::vec center);
-RcppExport SEXP _mixscat_sample_alpha(SEXP XSEXP, SEXP omegaSEXP, SEXP inv_covSEXP, SEXP zSEXP, SEXP CSEXP, SEXP centerSEXP) {
+// sample_beta
+arma::mat sample_beta(arma::mat X, arma::vec omega, arma::mat inv_cov, arma::vec z, arma::vec C);
+RcppExport SEXP _mixscat_sample_beta(SEXP XSEXP, SEXP omegaSEXP, SEXP inv_covSEXP, SEXP zSEXP, SEXP CSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -93,8 +63,22 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type inv_cov(inv_covSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type C(CSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type center(centerSEXP);
-    rcpp_result_gen = Rcpp::wrap(sample_alpha(X, omega, inv_cov, z, C, center));
+    rcpp_result_gen = Rcpp::wrap(sample_beta(X, omega, inv_cov, z, C));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_beta2
+arma::mat sample_beta2(arma::mat X, arma::vec omega, arma::mat precision_matrix, arma::vec z, arma::vec C);
+RcppExport SEXP _mixscat_sample_beta2(SEXP XSEXP, SEXP omegaSEXP, SEXP precision_matrixSEXP, SEXP zSEXP, SEXP CSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type precision_matrix(precision_matrixSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type C(CSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_beta2(X, omega, precision_matrix, z, C));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -109,15 +93,81 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fast_dummy_dense
+arma::mat fast_dummy_dense(arma::ivec x, int G);
+RcppExport SEXP _mixscat_fast_dummy_dense(SEXP xSEXP, SEXP GSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::ivec >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type G(GSEXP);
+    rcpp_result_gen = Rcpp::wrap(fast_dummy_dense(x, G));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sofmax_cpp
+arma::mat sofmax_cpp(const arma::mat& x);
+RcppExport SEXP _mixscat_sofmax_cpp(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(sofmax_cpp(x));
+    return rcpp_result_gen;
+END_RCPP
+}
+// compute_prob_group
+arma::mat compute_prob_group(arma::mat& B, arma::mat& beta_group, arma::uvec& idx);
+RcppExport SEXP _mixscat_compute_prob_group(SEXP BSEXP, SEXP beta_groupSEXP, SEXP idxSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type beta_group(beta_groupSEXP);
+    Rcpp::traits::input_parameter< arma::uvec& >::type idx(idxSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute_prob_group(B, beta_group, idx));
+    return rcpp_result_gen;
+END_RCPP
+}
+// predict_prob_cpp
+arma::mat predict_prob_cpp(int& M, arma::ivec& w, arma::mat& B, arma::mat& beta);
+RcppExport SEXP _mixscat_predict_prob_cpp(SEXP MSEXP, SEXP wSEXP, SEXP BSEXP, SEXP betaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int& >::type M(MSEXP);
+    Rcpp::traits::input_parameter< arma::ivec& >::type w(wSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type beta(betaSEXP);
+    rcpp_result_gen = Rcpp::wrap(predict_prob_cpp(M, w, B, beta));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fast_aggregate_sum
+arma::vec fast_aggregate_sum(arma::vec& log_pz, arma::ivec& id);
+RcppExport SEXP _mixscat_fast_aggregate_sum(SEXP log_pzSEXP, SEXP idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec& >::type log_pz(log_pzSEXP);
+    Rcpp::traits::input_parameter< arma::ivec& >::type id(idSEXP);
+    rcpp_result_gen = Rcpp::wrap(fast_aggregate_sum(log_pz, id));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_mixscat_dmvnrm_arma_fast", (DL_FUNC) &_mixscat_dmvnrm_arma_fast, 4},
-    {"_mixscat_cpp_eval_ldnorm", (DL_FUNC) &_mixscat_cpp_eval_ldnorm, 4},
     {"_mixscat_mvrnormArma", (DL_FUNC) &_mixscat_mvrnormArma, 3},
     {"_mixscat_cpp_compute_V", (DL_FUNC) &_mixscat_cpp_compute_V, 3},
-    {"_mixscat_cpp_compute_m", (DL_FUNC) &_mixscat_cpp_compute_m, 7},
-    {"_mixscat_sample_alpha", (DL_FUNC) &_mixscat_sample_alpha, 6},
+    {"_mixscat_cpp_compute_m", (DL_FUNC) &_mixscat_cpp_compute_m, 5},
+    {"_mixscat_sample_beta", (DL_FUNC) &_mixscat_sample_beta, 5},
+    {"_mixscat_sample_beta2", (DL_FUNC) &_mixscat_sample_beta2, 5},
     {"_mixscat_logsumexp_cpp", (DL_FUNC) &_mixscat_logsumexp_cpp, 1},
+    {"_mixscat_fast_dummy_dense", (DL_FUNC) &_mixscat_fast_dummy_dense, 2},
+    {"_mixscat_sofmax_cpp", (DL_FUNC) &_mixscat_sofmax_cpp, 1},
+    {"_mixscat_compute_prob_group", (DL_FUNC) &_mixscat_compute_prob_group, 3},
+    {"_mixscat_predict_prob_cpp", (DL_FUNC) &_mixscat_predict_prob_cpp, 4},
+    {"_mixscat_fast_aggregate_sum", (DL_FUNC) &_mixscat_fast_aggregate_sum, 2},
     {NULL, NULL, 0}
 };
 

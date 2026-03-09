@@ -5,6 +5,8 @@
 \title{Generate Initial Sample Array}
 \usage{
 gen_sample_array(iters, dimension, sampler = NULL, init = NULL)
+
+gen_sample_array(iters, dimension, sampler = NULL, init = NULL)
 }
 \arguments{
 \item{iters}{Integer. The total number of iterations for the MCMC chain.}
@@ -19,8 +21,13 @@ gen_sample_array(iters, dimension, sampler = NULL, init = NULL)
 \value{
 A numeric array of dimensions \code{c(iters, dimension)} with the first slice
 (corresponding to the first iteration) potentially filled with \code{init}.
+
+A numeric array of dimensions \code{c(iters, dimension)} with the first slice
+(corresponding to the first iteration) potentially filled with \code{init}.
 }
 \description{
+Creates an empty array to store MCMC samples, initialized with optional initial values.
+
 Internal: Creates an empty array to store MCMC samples, initialized with optional initial values.
 }
 \keyword{internal}

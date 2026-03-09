@@ -1,56 +1,261 @@
 gv = c(
   ".", "G", "M", "nvars", "w", "time", "log_penal",
   "li", "ui", "id", "logp_z", "lambda", "model", "mode_diff",
-  "min_id", "max_id", "mid_point"
+  "min_id", "max_id", "mid_point", "y", "variable"
 )
 
 utils::globalVariables(gv)
 
-#' Generate Dummy (Indicator) Matrix
+stick_breaking = function(x) {
+  x * c(1, cumprod(1 - x[-length(x)]))
+}
+
+complete_dim = function(array, dimension) {
+  if(length(dim(array)) == 0) {
+    if(length(array) < dimension) {
+      array = c(array, rep(NA, dimension - length(array)))
+    }
+  }else if(length(dim(array)) == 2) {
+    if(dim(array)[2] < dimension) {
+      array = cbind(array, matrix(NA, nrow(array), dimension - dim(array)[2]))
+    }
+  }
+
+  return(array)
+}
+
+
+logit = function(x) {
+  log(x/(1-x))
+}
+
+mse_score = function(y_true, y_pred) {
+  mean((y_true - y_pred)^2)
+}
+
+rmse_score = function(y_true, y_pred) {
+  sqrt(mse_score(y_true, y_pred))
+}
+
+corr_score = function(y_true, y_pred) {
+  diag(cor(y_true, y_pred))
+}
+
+compute_theta = function(mu, Z, E, K) {
+  n = nrow(Z)
+  G = ncol(Z)
+  K = ncol(cbind(E))
+
+  if(K == 1 & G > 1) mu = cbind(mu)
+  if(K > 1 & G == 1) mu = rbind(mu)
+
+  mu_matrix = Z %*% mu
+  theta = mu_matrix + E
+  return(theta)
+}
+
+create_dummy = function(z, G) {
+
+  if(G != 1) {
+
+    Z = fast_dummy_dense(z, G)
+
+  }else{
+    Z = matrix(1, nrow = length(z), ncol = 1)
+  }
+
+  return(Z)
+}
+
+filter_chain = function(chain, thin, burn_in) {
+
+  iters = dim(chain)[1]
+  index = seq(burn_in+1, iters, thin)
+  dims = length(dim(chain))
+
+  if(dims == 3) {
+    chain = chain[index,,]
+  }else if(dims == 2){
+    chain = chain[index,]
+  }else if(dims == 1){
+    chain = chain[index]
+  }
+
+  return(chain)
+
+}
+
+
+#' Generate Initial Sample Array
 #'
-#' Creates a dummy variable (indicator) matrix for a categorical variable, with an option to include an intercept column.
+#' Creates an empty array to store MCMC samples, initialized with optional initial values.
 #'
-#' @param x Integer vector of categories (1-based).
-#' @param n_cat Integer. Number of categories.
-#' @param intercept Logical. If TRUE, includes an intercept column. Default is FALSE.
+#' @param iters Integer. The total number of iterations for the MCMC chain.
+#' @param dimension Integer vector. The dimensions of the array for each iteration's sample
+#'   (excluding the iteration dimension).
+#' @param sampler Function. An optional function to generate initial values if `init` is `NULL`.
+#' @param init Numeric array. Optional initial values for the first iteration.
 #'
-#' @return Numeric matrix of dummy variables.
+#' @return A numeric array of dimensions `c(iters, dimension)` with the first slice
+#'   (corresponding to the first iteration) potentially filled with `init`.
 #' @keywords internal
-#' @examples
-#' \dontrun{
-#' gen_dummy(c(1, 2, 3), n_cat = 3, intercept = TRUE)
-#' }
-gen_dummy = function(x, n_cat, intercept = FALSE) {
+gen_sample_array = function(iters, dimension, sampler = NULL, init = NULL) {
 
-  x = factor(x, levels = 1:n_cat)
+  dim_len = length(dimension)
+  sample_array = array(dim = c(iters, dimension))
 
-  if(intercept == FALSE) {
 
-    if(n_cat == 1) {
-      X = cbind(rep(1, length(x)))
+  if(is.null(init)) {
+    init = sampler(prod(dimension))
+  }
 
-    }else{
-      X = model.matrix( ~ -1 + x)
-      X = X[1:nrow(X), ]
+  if(dim_len == 0) {
+    sample_array[1] = init
+  }else if(dim_len == 1) {
+    sample_array[1,] = as.numeric(init)
+  }else if(dim_len == 2) {
+    sample_array[1,,] = init
+  }
+
+  return(sample_array)
+
+}
+
+compute_mode = function(x) {
+  x |> table() %>% which.max() %>% names() %>% as.integer()
+}
+
+compute_post_stat = function(sample, stat_function = mean, ...) {
+
+  dims = length(dim(sample))
+
+  if(!is.null(sample)) {
+
+    if(dims == 3) {
+      est = lapply(1:dim(sample)[3], function(g){
+        cbind(sample[, , g]) |> apply(MARGIN = 2, FUN = stat_function, ...)
+      }) %>% do.call(cbind, .)
+
+    }else if(dims == 2) {
+
+      est = apply(sample, FUN = stat_function, MARGIN = 2,  ...)
+
+    }else if(dims == 1) {
+
+      est = stat_function(sample, ...)
+
     }
 
   }else{
-
-    if(n_cat == 1) {
-      X = cbind(rep(1, length(x)))
-
-    }else{
-      X = model.matrix( ~ x)
-      X = X[1:nrow(X), ]
-    }
-
+    est = NULL
   }
 
-  colnames(X) = NULL
-  rownames(X) = NULL
+  return(est)
 
-  return(X)
 }
+
+compute_posterior_mean = function(sample_list) {
+  purrr::map(sample_list, compute_post_stat)
+}
+
+
+get_rotation_list = function(post_sample, reference_matrix) {
+  rotation_list = list()
+  iters = dim(post_sample)[1]
+  K = dim(post_sample)[3]
+
+  if(K == 1) {
+    for(i in 1:iters) {
+      rotation_list[[i]] = vegan::procrustes(Y = cbind(post_sample[i,,]),
+                                             X = cbind(reference_matrix),
+                                             scale = F)
+    }
+  }else{
+    for(i in 1:iters) {
+      rotation_list[[i]] = vegan::procrustes(Y = post_sample[i,,],
+                                             X = reference_matrix,
+                                             scale = F)
+    }
+  }
+
+  return(rotation_list)
+}
+
+apply_rotation = function(post_sample, rotation_list) {
+  new_post_sample = post_sample
+  iters = dim(post_sample)[1]
+  K = dim(post_sample)[3]
+
+  if(K == 1) {
+    for(i in 1:iters) {
+      r = rotation_list[[i]]$rotation
+      new_post_sample[i,,] = cbind(post_sample[i,,]) %*% r
+    }
+  }else{
+    for(i in 1:iters) {
+      r = rotation_list[[i]]$rotation
+      new_post_sample[i,,] = post_sample[i,,] %*% r
+    }
+  }
+
+  return(new_post_sample)
+}
+
+get_adapted_rotation_list = function(post_sample, reference_matrix, H_vec) {
+
+  rotation_list = list()
+  iters = dim(post_sample)[1]
+  K = dim(post_sample)[3]
+
+  if(K == 1) {
+    for(i in 1:iters) {
+      rotation_list[[i]] = vegan::procrustes(
+        Y = cbind(post_sample[i,, 1:H_vec[i]]),
+        X = cbind(reference_matrix[, 1:(H_vec[i]-1)], 0),
+        scale = F
+      )
+    }
+  }else{
+    for(i in 1:iters) {
+      rotation_list[[i]] = vegan::procrustes(
+        Y = cbind(post_sample[i,, 1:H_vec[i]]),
+        X = cbind(reference_matrix[, 1:(H_vec[i]-1)], 0),
+        scale = F
+      )
+    }
+  }
+
+  return(rotation_list)
+}
+
+apply_adapted_rotation = function(post_sample, rotation_list, H_vec) {
+  new_post_sample = post_sample
+  iters = dim(post_sample)[1]
+  K = dim(post_sample)[3]
+
+  if(K == 1) {
+    for(i in 1:iters) {
+      r = rotation_list[[i]]$rotation
+      new_post_sample[i,, 1:H_vec[i]] = cbind(post_sample[i,, 1:H_vec[i]]) %*% r
+    }
+  }else{
+    for(i in 1:iters) {
+      r = rotation_list[[i]]$rotation
+      new_post_sample[i,, 1:H_vec[i]] = post_sample[i,, 1:H_vec[i]] %*% r
+    }
+  }
+
+  return(new_post_sample)
+}
+
+
+gv = c(
+  ".", "G", "M", "nvars", "w", "time", "log_penal",
+  "li", "ui", "id", "logp_z", "lambda", "model", "mode_diff",
+  "min_id", "max_id", "mid_point"
+)
+
+utils::globalVariables(gv)
 
 #' Indices of Non-Penalized Basis Functions
 #'
@@ -441,3 +646,31 @@ format_best_lambda = function(best_lambda_list) {
            M = stringr::str_remove(M, " M=") %>% as.integer()) %>%
     as_tibble()
 }
+
+comp_prior_mean = function(w, beta_theta, B_unique, M) {
+
+  W = gen_dummy(w, M, intercept = FALSE)
+  prior_mean = kronecker(W, B_unique) %*% beta_theta
+  #prior_mean = scale(prior_mean, center = TRUE, scale = FALSE)
+  return(prior_mean)
+}
+
+gen_normal_mat = function(n, k) {
+  matrix(rnorm(n * k), nrow = n, ncol = k)
+}
+
+compute_probs = function(w, M, B, beta) {
+
+  W = create_dummy(w, M)
+  X = cbind(1, kronecker(W, B))
+  prob = mclust::softmax(X %*% beta)
+
+  return(prob)
+}
+
+
+
+
+
+
+

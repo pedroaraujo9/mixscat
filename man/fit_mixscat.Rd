@@ -2,107 +2,83 @@
 % Please edit documentation in R/fit_mixscat.R
 \name{fit_mixscat}
 \alias{fit_mixscat}
-\title{Fit Sequential Model}
+\title{Fit mixture of categorical distribution with a spline term for
+each component of the mixture.}
 \usage{
 fit_mixscat(
-  G = NULL,
-  M = NULL,
-  z = NULL,
-  w = NULL,
-  x = NULL,
+  M,
+  z,
   id,
   time,
-  iters = 1000,
-  burn_in = iters/2,
-  thin = 5,
+  n_basis,
+  iters,
+  thin,
+  burn_in,
+  chains,
+  seed,
   lambda = NULL,
-  n_basis = 10,
-  init_list = NULL,
+  intercept_penalty = 1,
+  w_dirichlet = 1,
   n_cores = 1,
-  config = list(single_group = FALSE, bounds = c(0.01, 10), lambda_start = 1, n_points =
-    20, n_start = 30, n_start_iters = 20, n_start_cores = 1, epsilon_w = 1, beta_sd =
-    sqrt(10), mu_sd = sqrt(10), sigma_a = 1, sigma_b = 1),
   verbose = TRUE,
-  seed = NULL
+  init_control = list(lambda_init = 1, lambda_grid = seq(from = 0.01, to = 5, length.out
+    = 50), n_init = 100, init_iters = 20, init_burn_in = 10, init_thin = 2)
 )
 }
 \arguments{
-\item{G}{Numeric vector of possible values for \code{G}.}
+\item{M}{Integer vector specifying the number of groups.}
 
-\item{M}{Numeric vector of possible values for \code{M}.}
+\item{z}{Numeric vector or with response variables.}
 
-\item{z}{Optional sequence values to be clustered.}
+\item{id}{Vector of subject identifiers.}
 
-\item{w}{Optional sequence clusters.}
+\item{time}{Vector of time points.}
 
-\item{x}{Optional covariate matrix to find \code{z}.}
+\item{n_basis}{Integer specifying the number of basis functions to use.}
 
-\item{id}{Vector of subject or group identifiers.}
+\item{iters}{Integer specifying the number of MCMC iterations.}
 
-\item{time}{Vector of time points corresponding to the observations.}
+\item{thin}{Integer specifying the thinning interval for MCMC samples.}
 
-\item{iters}{Integer. Total number of MCMC iterations. Default is 1000.}
+\item{burn_in}{Integer specifying the number of burn-in iterations to discard.}
 
-\item{burn_in}{Integer. Number of burn-in iterations. Default is \code{iters/2}.}
+\item{chains}{Integer specifying the number of MCMC chains to run.}
 
-\item{thin}{Integer. Thinning interval for MCMC sampling. Default is 5.}
+\item{seed}{Integer seed for random number generation to ensure reproducibility.}
 
-\item{lambda}{Optional numeric value for the regularization parameter. If \code{NULL},
-the optimal lambda is estimated via \code{\link[=calibrate_lambda]{calibrate_lambda()}}.}
+\item{lambda}{Numeric value for the regularization parameter. If NULL, will be
+calibrated automatically. Default is NULL.}
 
-\item{n_basis}{Integer. Number of spline basis functions (includes intercept). Default is 10.}
+\item{intercept_penalty}{Numeric penalty weight for the intercept term. Default is 1.}
 
-\item{init_list}{Optional list of initial values for model parameters.}
+\item{w_dirichlet}{Numeric hyperparameter for the Dirichlet prior on mixture weights.
+Default is 1.}
 
-\item{n_cores}{Integer. Number of CPU cores to use for parallel processing. Default is 1.}
+\item{n_cores}{Integer specifying the number of CPU cores to use for parallel
+computation. Default is 1.}
 
-\item{config}{List of additional configuration parameters:
+\item{verbose}{Logical indicating whether to print progress messages. Default is TRUE.}
+
+\item{init_control}{List of initialization control parameters including:
 \itemize{
-\item \code{single_group}: Logical. If \code{TRUE}, assumes a single group for clustering. Default is \code{FALSE}.
-\item \code{n_start}: Number of random initializations.
-\item \code{n_start_iter}: Number of iterations for initialization search.
-\item \code{n_start_cores}: Number of cores for initialization search.
-\item \code{epsilon_w}, \code{beta_sd}, \code{mu_sd}, \code{sigma_a}, \code{sigma_b}: Priors and scaling constants.
-\item \code{bounds}: Range for lambda search.
-\item \code{n_grid}: Number of grid points for lambda search.
+\item \code{lambda_init}: Initial lambda value (default: 1)
+\item \code{lambda_grid}: Grid of lambda values for calibration (default: seq(0.01, 5, length.out = 50))
+\item \code{n_init}: Number of initializations to try (default: 100)
+\item \code{init_iters}: Number of iterations for initialization (default: 20)
+\item \code{init_burn_in}: Burn-in for initialization (default: 10)
+\item \code{init_thin}: Thinning for initialization (default: 2)
 }}
-
-\item{verbose}{Logical. If \code{TRUE}, prints progress messages. Default is TRUE.}
-
-\item{seed}{Optional integer seed for reproducibility. If \code{NULL}, a random seed is generated.}
 }
 \value{
 A list containing:
-\itemize{
-\item \code{fit}: List of fitted model objects.
-\item \code{init}: List of initialization results.
-\item \code{lambda_opt}: List of optimal lambda search results.
-\item \code{best_lambda}: Numeric vector of best lambda values.
-\item \code{run_time}: Total runtime as a \code{difftime} object.
-\item \code{seed}: Random seed used.
-\item \code{metrics}: Formatted model performance metrics.
-\item \code{model_data}: Minimal model data object.
-}
+\item{model_data}{Processed model data structure}
+\item{args}{List of arguments passed to the function}
+\item{cluster_metrics}{Data frame of clustering metrics for each M value}
+\item{best_lambda}{List of optimal lambda values for each M}
+\item{fit}{List of fitted model objects for each M value}
+\item{run_time}{Total computation time}
 }
 \description{
-Fits a multi-basis function sequential model for given combinations of
-\code{G} and \code{M}, performing lambda calibration, initialization search,
-and final model fitting. Supports parallel processing for model combinations.
-}
-\details{
-This function iterates over all combinations of \code{G} and \code{M} values,
-fits the corresponding model using \code{\link[=single_run]{single_run()}}, and computes performance metrics
-with \code{\link[=comp_metrics]{comp_metrics()}}.
-
-If \code{lambda} is \code{NULL}, \code{\link[=calibrate_lambda]{calibrate_lambda()}} is used to find the optimal value.
-Initialization values are obtained using \code{\link[=find_init]{find_init()}}.
-}
-\examples{
-\dontrun{
-result <- fit_mbfseq(G = c(2, 3), M = c(4, 5),
-                     id = rep(1:10, each = 5),
-                     time = rep(1:5, times = 10),
-                     iters = 500, n_cores = 2)
-}
-
+Fits a Bayesian mixture of categorical distributions with a spline term for
+each component of the mixture.
 }
