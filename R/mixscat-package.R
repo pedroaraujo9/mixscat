@@ -8,6 +8,7 @@
 #' @docType package
 #' @name mixscat
 #' @useDynLib mixscat, .registration = TRUE
+#' @importFrom Rcpp evalCpp
 #' @keywords package clustering mixture bayesian mortality
 #' @author Pedro Menezes de Araújo
 "_PACKAGE"

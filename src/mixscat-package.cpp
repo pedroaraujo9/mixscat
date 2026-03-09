@@ -1,62 +1,8 @@
-// [[Rcpp::depends("RcppArmadillo")]]
+// [[Rcpp::depends(RcppArmadillo)]]
 #include <RcppArmadillo.h>
-
+using namespace Rcpp;
+using namespace arma;
 static double const log2pi = std::log(2.0 * M_PI);
-
-/* C++ version of the dtrmv BLAS function */
-void inplace_tri_mat_mult(arma::rowvec &x, arma::mat const &trimat){
-  arma::uword const n = trimat.n_cols;
-
-  for(unsigned j = n; j-- > 0;){
-    double tmp(0.);
-    for(unsigned i = 0; i <= j; ++i)
-      tmp += trimat.at(i, j) * x[i];
-    x[j] = tmp;
-  }
-}
-
-// [[Rcpp::export]]
-arma::vec dmvnrm_arma_fast(arma::mat const &x,
-                           arma::rowvec const &mean,
-                           arma::mat const &sigma,
-                           bool const logd = false) {
-  using arma::uword;
-  uword const n = x.n_rows,
-    xdim = x.n_cols;
-  arma::vec out(n);
-  arma::mat const rooti = arma::inv(trimatu(arma::chol(sigma)));
-  double const rootisum = arma::sum(log(rooti.diag())),
-    constants = -(double)xdim/2.0 * log2pi,
-    other_terms = rootisum + constants;
-
-  arma::rowvec z;
-  for (uword i = 0; i < n; i++) {
-    z = (x.row(i) - mean);
-    inplace_tri_mat_mult(z, rooti);
-    out(i) = other_terms - 0.5 * arma::dot(z, z);
-  }
-
-  if (logd)
-    return out;
-  return exp(out);
-}
-
-// [[Rcpp::export]]
-arma::vec cpp_eval_ldnorm(arma::mat x, arma::mat mu, arma::cube sigma, arma::uvec z) {
-  int n = x.n_rows;
-
-  arma::vec logp(n);
-
-  for(int i = 0; i < n; i++) {
-    arma::mat mu_g = mu.row(z(i)-1);
-    arma::mat sigma_g = sigma.slice(z(i)-1);
-    logp(i) = dmvnrm_arma_fast(x.row(i), mu_g, sigma_g, true)(0);
-  }
-
-  return logp;
-}
-
-
 
 // [[Rcpp::export]]
 arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma) {
@@ -67,49 +13,15 @@ arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma) {
   return arma::repmat(mu, 1, n).t() + Y * arma::chol(sigma_sym);
 }
 
-// // [[Rcpp::export]]
-// arma::mat mvrnormArma(int n, arma::vec mu, arma::mat sigma) {
-//   int ncols = sigma.n_cols;
-//   arma::mat Y = arma::randn(n, ncols);
-//
-//   // Force symmetry
-//   arma::mat sigma_sym = 0.5 * (sigma + sigma.t());
-//
-//   // Add small ridge if not positive definite
-//   arma::mat L;
-//   bool success = false;
-//   double jitter = 1e-8;
-//   int max_tries = 5;
-//   int tries = 0;
-//
-//   while (!success && tries < max_tries) {
-//     try {
-//       L = arma::chol(sigma_sym);
-//       success = true;
-//     } catch (...) {
-//       sigma_sym += jitter * arma::eye(sigma_sym.n_rows, sigma_sym.n_cols);
-//       jitter *= 10;  // increase jitter each time
-//       tries++;
-//     }
-//   }
-//
-//   if (!success) {
-//     Rcpp::stop("Cholesky decomposition failed even after ridge regularization.");
-//   }
-//
-//   return arma::repmat(mu, 1, n).t() + Y * L;
-// }
-
-
 // [[Rcpp::export]]
 arma::mat cpp_compute_V(arma::mat X,
                         arma::vec omega,
-                        arma::mat inv_cov) {
+                        arma::mat precision_matrix) {
 
   arma::mat XtOmegaX = X.each_col() % omega;
   XtOmegaX = XtOmegaX.t() * X;
   XtOmegaX += 1e-7 * arma::eye(X.n_cols, X.n_cols);
-  arma::mat V = arma::inv(XtOmegaX + inv_cov);
+  arma::mat V = arma::inv(XtOmegaX + precision_matrix);
 
   return V;
 }
@@ -119,32 +31,109 @@ arma::mat cpp_compute_m(arma::mat V,
                         arma::mat X,
                         arma::vec z,
                         arma::vec omega,
-                        arma::vec C,
-                        arma::vec center,
-                        arma::mat inv_cov) {
-  arma::mat m = V * (X.t() * ((z - 0.5) + (omega % C)) + inv_cov * center);
+                        arma::vec C) {
+  arma::mat m = V * (X.t() * ((z - 0.5) + (omega % C)));
   return m;
 }
 
-
 // [[Rcpp::export]]
-arma::mat sample_alpha(arma::mat X,
-                       arma::vec omega,
-                       arma::mat inv_cov,
-                       arma::vec z,
-                       arma::vec C,
-                       arma::vec center) {
+arma::mat sample_beta(arma::mat X,
+                      arma::vec omega,
+                      arma::mat inv_cov,
+                      arma::vec z,
+                      arma::vec C) {
 
   arma::mat V = cpp_compute_V(X, omega, inv_cov);
-  arma::mat mu = cpp_compute_m(V, X, z, omega, C, center, inv_cov);
+  arma::mat mu = cpp_compute_m(V, X, z, omega, C);
 
   return mvrnormArma(1, mu, V).t();
 
 }
 
+// [[Rcpp::export]]
+arma::mat sample_beta2(arma::mat X,
+                       arma::vec omega,
+                       arma::mat precision_matrix,
+                       arma::vec z,
+                       arma::vec C) {
+
+  arma::mat X_omega = X.each_col() % omega;
+  arma::mat post_prec = (X_omega.t() * X) + precision_matrix;
+
+  arma::mat L_prec = arma::chol(post_prec, "lower");
+
+  arma::vec rhs = X.t() * ((z - 0.5) + (omega % C));
+  arma::vec std_noise = arma::randn<arma::vec>(rhs.n_elem);
+
+  return arma::solve(arma::trimatl(L_prec), rhs + std_noise);
+
+}
 
 // [[Rcpp::export]]
 double logsumexp_cpp(const arma::vec& x) {
-  double max_val = x.max();
-  return max_val + std::log(arma::sum(arma::exp(x - max_val)));
+  double xmax = x.max();
+  return xmax + std::log(arma::sum(arma::exp(x - xmax)));
 }
+
+
+// [[Rcpp::export]]
+arma::mat fast_dummy_dense(arma::ivec x, int G) {
+  int N = x.n_elem;
+  arma::mat out(N, G, arma::fill::zeros);
+
+  for(int i = 0; i < N; ++i) {
+    out(i, x(i)-1) = 1.0;
+  }
+
+  return out;
+}
+
+// [[Rcpp::export]]
+arma::mat sofmax_cpp(const arma::mat& x) {
+  arma::mat ex = arma::exp(x);
+  arma::vec row_sum = arma::sum(ex, 1);
+  ex.each_col() /= row_sum;
+  arma::mat P = ex;
+  return P;
+}
+
+// [[Rcpp::export]]
+arma::mat compute_prob_group(arma::mat& B,
+                             arma::mat& beta_group,
+                             arma::uvec& idx) {
+  arma::mat prob = sofmax_cpp(B * beta_group);
+  return prob.rows(idx);
+}
+
+// [[Rcpp::export]]
+arma::mat predict_prob_cpp(int& M,
+                           arma::ivec& w,
+                           arma::mat& B,
+                           arma::mat& beta) {
+
+  arma::mat W = fast_dummy_dense(w, M);
+  arma::mat X = arma::kron(W, B);
+  arma::mat prob = sofmax_cpp(X * beta);
+  return prob;
+}
+
+// [[Rcpp::export]]
+arma::vec fast_aggregate_sum(arma::vec& log_pz, arma::ivec& id) {
+  // 1. Find the range of IDs
+  int min_id = id.min();
+  int max_id = id.max();
+  int range = max_id - min_id + 1;
+
+  // 2. Initialize a result vector with zeros
+  arma::vec sums(range, fill::zeros);
+
+  // 3. Single-pass accumulation (The "O(n)" magic)
+  for (unsigned int i = 0; i < id.n_elem; ++i) {
+    // Offset by min_id so it starts at index 0
+    sums(id(i) - min_id) += log_pz(i);
+  }
+
+  return sums;
+}
+
+

@@ -95,6 +95,10 @@ find_init = function(n_start = 30,
 
   init_time = Sys.time()
   runs = future.apply::future_lapply(1:n_start, function(i){
+    
+    # Explicitly load Rcpp and mixscat
+    library(Rcpp)
+    library(mixscat)
 
     single_run(
       model_data = model_data,
@@ -108,7 +112,7 @@ find_init = function(n_start = 30,
       seed = NULL
     )
 
-  }, future.seed = TRUE)
+  }, future.seed = TRUE, future.packages = "Rcpp")
   end_time = Sys.time()
 
   logpost = map_dbl(runs, ~{mean(.x$logpost[, "logpost"])})

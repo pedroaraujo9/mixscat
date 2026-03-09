@@ -1,150 +1,227 @@
-#' Model Fitting Pipeline for a Single G and M Combination
+#' Pipeline for fitting mixture of spline-based categorical distributions
 #'
-#' Internal: Orchestrates the complete model fitting process for a single combination
-#' of G (primary clusters) and M (secondary clusters). This includes creating
-#' model data, calibrating lambda (if needed), finding good initial values, and
-#' running the main MCMC chain.
+#' @description
+#' Complete pipeline for fitting a Bayesian mixture model with spline-based
+#' categorical distributions. This function orchestrates the entire fitting process,
+#' including initialization, lambda calibration (if needed), running multiple MCMC chains,
+#' convergence checking, and computing model evaluation metrics.
 #'
-#' @param cluster_dim Numeric vector of length 2, named "G" and "M", specifying
-#'   the number of primary and secondary clusters for this run.
-#' @param z Optional integer vector. Primary cluster assignments for each subject or observation.
-#' @param w Optional integer vector. Secondary cluster assignments for each subject or observation.
-#' @param x Optional matrix or data.frame of covariates (columns = covariates, rows = observations).
-#' @param id Vector of subject or group identifiers.
-#' @param time Numeric vector indicating the time for each observation.
-#' @param iters Integer. Total number of MCMC iterations for the final run.
-#' @param burn_in Integer. Number of burn-in iterations for the final run.
-#' @param thin Integer. Thinning interval for MCMC sampling in the final run.
-#' @param lambda Optional numeric value for the regularization parameter. If `NULL`,
-#'   the optimal lambda is estimated via `calibrate_lambda`.
-#' @param n_basis Integer. Number of spline basis functions (includes intercept).
-#' @param init_list Optional list of initial values for model parameters. If `NULL`,
-#'   initial values are found using `find_init`.
-#' @param config List of additional configuration parameters, including options
-#'   for lambda calibration and initialization search (see `calibrate_lambda` and `find_init`).
-#' @param verbose Logical. If `TRUE`, prints progress messages.
-#' @param seed Optional integer seed for reproducibility. If `NULL`, a random seed is generated.
-#'
-#' @return A list containing:
-#'   \describe{
-#'     \item{opt_lambda}{Result from lambda calibration (see `calibrate_lambda`), or a list
-#'                       with the provided lambda.}
-#'     \item{opt_init}{Result from the initialization search (see `find_init`).}
-#'     \item{fit}{Result from the final model run (see `single_run`).}
-#'     \item{seed}{The random seed used for this pipeline run.}
-#'   }
+#' @param model_data List containing the processed model data structure created by
+#'   \code{\link{create_model_data}}. Should include response data, covariates,
+#'   spline basis matrices, and prior specifications.
+#' @param M Integer specifying the number of mixture components (groups/clusters).
+#' @param chains Integer specifying the number of MCMC chains to run. Default is 2.
+#'   Multiple chains are recommended for convergence assessment.
+#' @param iters Integer specifying the total number of MCMC iterations per chain.
+#'   Default is 1000.
+#' @param burn_in Integer specifying the number of initial iterations to discard
+#'   as burn-in. Default is 500.
+#' @param thin Integer specifying the thinning interval. Only every \code{thin}-th
+#'   iteration is retained. Default is 5.
+#' @param lambda Numeric value for the ridge regularization parameter. If NULL
+#'   (default), lambda will be automatically calibrated using cross-validation
+#'   across \code{lambda_grid}.
+#' @param lambda_init Numeric initial lambda value to use during initialization
+#'   when \code{lambda = NULL}. Default is 1. Ignored if \code{lambda} is specified.
+#' @param lambda_grid Numeric vector of lambda values to evaluate during calibration.
+#'   Default is \code{seq(0.05, 5, length.out = 30)}. Only used when \code{lambda = NULL}.
+#' @param n_init Integer specifying the number of random initializations to try
+#'   when finding good starting values. The initialization with highest posterior
+#'   probability is selected. Default is 10.
+#' @param init_iters Integer specifying the number of MCMC iterations to run for
+#'   each initialization attempt. Default is 30.
+#' @param init_burn_in Integer specifying burn-in iterations for each initialization
+#'   run. Default is 15.
+#' @param init_thin Integer specifying thinning interval for initialization runs.
+#'   Default is 2.
+#' @param verbose Logical indicating whether to print progress messages during
+#'   execution. Default is TRUE.
+#' @param seed Integer seed for random number generation to ensure reproducibility.
 #'
 #' @details
-#' This function serves as an internal helper for `fit_mixscat`, handling the sequential
-#' steps for a single (G, M) model configuration. It first calls `create_model_data`
-#' to prepare the data structures. If `lambda` is not provided, it performs lambda
-#' tuning using `calibrate_lambda`. Then, it finds robust initial values using
-#' `find_init`. Finally, it executes the main MCMC chain with `single_run` using
-#' the found or provided initial values and lambda. Progress messages are printed
-#' if `verbose` is `TRUE`.
+#' The pipeline executes the following steps:
+#' \enumerate{
+#'   \item \strong{Initialization}: Runs \code{n_init} short MCMC chains with
+#'         different random starting values and selects the one with highest
+#'         log-posterior probability.
+#'   \item \strong{Lambda Calibration}: If \code{lambda = NULL}, evaluates model
+#'         fit across \code{lambda_grid} values and selects the optimal regularization
+#'         parameter based on predictive performance.
+#'   \item \strong{Main MCMC Sampling}: Runs \code{chains} independent MCMC chains
+#'         starting from the best initialization, each with \code{iters} iterations.
+#'   \item \strong{Convergence Assessment}: Checks convergence of log-posterior
+#'         and regression coefficients (beta) across chains.
+#'   \item \strong{Post-processing}: Combines chains, computes predicted probabilities
+#'         across the spline basis, and evaluates model fit metrics.
+#' }
 #'
-#' @seealso \code{\link{fit_mixscat}}, \code{\link{create_model_data}}, \code{\link{calibrate_lambda}}, \code{\link{find_init}}, \code{\link{single_run}}
-#' @keywords internal
-pipeline = function(cluster_dim,
-                    z,
-                    w,
-                    x,
-                    id,
-                    time,
-                    iters,
-                    burn_in,
-                    thin,
-                    lambda,
-                    n_basis,
-                    init_list,
-                    config = list(
-                      lambda_hamming = TRUE,
-                      bounds = c(0.01, 10),
-                      lambda_start = 1,
-                      n_points = 20,
-                      n_start = 30,
-                      n_start_iters = 20,
-                      n_start_cores = 1,
-                      n_lambda_cores = 1,
-                      epsilon_w = 1,
-                      beta_sd = sqrt(10),
-                      mu_sd = sqrt(10),
-                      sigma_a = 1,
-                      sigma_b = 1
-                    ),
+#' @return A list with the following components:
+#' \describe{
+#'   \item{\code{sample_list}}{List containing posterior samples combined across
+#'         all chains after burn-in and thinning. Includes:
+#'         \itemize{
+#'           \item \code{beta}: Array of regression coefficient samples
+#'           \item \code{w}: Matrix of cluster assignment samples
+#'           \item \code{pw}: Matrix of mixing proportion samples
+#'           \item \code{logpost}: Matrix of log-posterior values
+#'           \item \code{spline_probs}: Array of predicted probabilities across spline basis
+#'         }}
+#'   \item{\code{lambda_opt}}{List with optimal lambda value. Contains:
+#'         \itemize{
+#'           \item \code{best_lambda}: The selected regularization parameter
+#'         }}
+#'   \item{\code{conv_check}}{List of convergence diagnostics:
+#'         \itemize{
+#'           \item \code{logpost}: Convergence statistics for log-posterior
+#'           \item \code{beta}: Convergence statistics for regression coefficients
+#'         }}
+#'   \item{\code{metrics}}{Data frame of model evaluation metrics including
+#'         information criteria, predictive performance, and clustering quality measures.}
+#'   \item{\code{w}}{Vector of posterior mode cluster assignments for each observation.}
+#' }
+#'
+#' @seealso
+#' \code{\link{fit_mixscat}} for the high-level user interface,
+#' \code{\link{create_model_data}} for data preparation,
+#' \code{\link{find_init_w}} for initialization,
+#' \code{\link{calibrate_lambda}} for lambda selection
+#'
+#' @examples
+#' \dontrun{
+#' # Prepare model data
+#' model_data <- create_model_data(
+#'   z = response_vector,
+#'   id = subject_ids,
+#'   time = time_points,
+#'   n_basis = 10
+#' )
+#'
+#' # Run pipeline for a 3-component mixture
+#' result <- pipeline(
+#'   model_data = model_data,
+#'   M = 3,
+#'   chains = 2,
+#'   iters = 2000,
+#'   burn_in = 1000,
+#'   thin = 5,
+#'   seed = 123
+#' )
+#'
+#' # Check convergence
+#' print(result$conv_check)
+#'
+#' # View model metrics
+#' print(result$metrics)
+#'
+#' # Extract cluster assignments
+#' clusters <- result$w
+#' }
+#'
+#' @export
+pipeline = function(model_data,
+                    M,
+                    chains = 2,
+                    iters = 1000,
+                    burn_in = 500,
+                    thin = 5,
+                    lambda = NULL,
+                    lambda_init = 1,
+                    lambda_grid = seq(0.05, 5, length.out = 30),
+                    n_init = 10,
+                    init_iters = 30,
+                    init_burn_in = 15,
+                    init_thin = 2,
                     verbose = TRUE,
-                    seed = NULL) {
+                    seed) {
 
-  if(is.null(seed)) seed = sample(1:10000, size = 1)
   set.seed(seed)
 
-  g = cluster_dim["G"]
-  m = cluster_dim["M"]
+  if(verbose) cat("Finding init values\n")
 
-  model_data = create_model_data(
-    time = time,
-    id = id,
-    x = x,
-    z = z,
-    w = w,
-    G = g,
-    M = m,
-    n_basis = n_basis,
-    intercept = FALSE
+  init_run = find_init_w(
+    M = M,
+    model_data = model_data,
+    lambda_init = ifelse(is.null(lambda), lambda_init, lambda),
+    n_init = n_init,
+    init_iters = init_iters,
+    init_burn_in = init_burn_in,
+    init_thin = init_thin,
+    verbose = TRUE,
+    seed
   )
 
-  # find optimal lambda if lambda is not provided
+  if(verbose) cat("Finding lambda\n")
+
   if(is.null(lambda)) {
 
-    if(verbose) cat(paste0("G = ", g, ", M = ", m, " - Finding lambda\n"))
-
-    opt_lambda = calibrate_lambda(
-      z = z,
-      w = w,
+    lambda_opt = calibrate_lambda(
+      w = init_run$w0,
+      M = M,
       model_data = model_data,
-      lambda_hamming = config$lambda_hamming,
-      n_cores = config$n_lambda_cores,
-      config = config
+      lambda_grid = lambda_grid
     )
 
   }else{
 
-    opt_lambda = list(best_lambda = lambda)
+    lambda_opt = list(
+      best_lambda = lambda
+    )
 
   }
 
-  # find inits
-  if(verbose) cat(paste0("G = ", g, ", M = ", m, " - Finding inits\n"))
 
-  init = find_init(
-    n_start = config$n_start,
-    iters = config$n_start_iters,
-    n_cores = config$n_start_cores,
-    model_data = model_data,
-    lambda = opt_lambda$best_lambda,
-    init_list = init_list,
-    priors = config,
-    seed = NULL
+  init_list = list(
+    w = init_run$w0,
+    beta = init_run$beta0,
+    pw = init_run$pw0
   )
 
-  # final run
-  run = single_run(
-    model_data = model_data,
-    lambda = opt_lambda$best_lambda,
-    iters = iters,
-    burn_in = burn_in,
-    thin = thin,
-    init_list = init$init_list,
-    priors = config,
-    verbose = verbose,
-    seed = NULL
+  cat("Running chains \n")
+
+  runs = lapply(1:chains, function(i){
+
+    if(verbose) cat("Chain:", i, "\n")
+
+    single_run(
+      M = M,
+      model_data = model_data,
+      lambda = lambda_opt$best_lambda,
+      init_list = init_list,
+      iters = iters,
+      burn_in = burn_in,
+      thin = thin,
+      seed = NULL,
+      verbose = verbose
+    )
+
+  })
+
+  logpost_conv_check = check_conv_logpost(runs = runs)
+  beta_conv_check = check_conv_param(runs = runs, param_name = "beta")
+
+  sample_list = combine_chains(runs = runs, model_data)
+
+  for(i in 1:nrow(sample_list$logpost)) {
+    sample_list$spline_probs[i,,] = predict_prob_cpp(
+      M = M, w = 1:M, B = model_data$spline$B, beta = sample_list$beta[i,,]
+    )
+  }
+
+  metrics = compute_metrics(
+    sample_list = sample_list,
+    lambda = lambda_opt$best_lambda,
+    model_data = model_data
   )
 
   out = list(
-    opt_lambda = opt_lambda,
-    opt_init = init,
-    fit = run,
-    seed = seed
+    sample_list = sample_list,
+    lambda_opt = lambda_opt,
+    conv_check = list(
+      logpost = logpost_conv_check,
+      beta = beta_conv_check
+    ),
+    metrics = metrics,
+    w = sample_list$w |> comp_class()
   )
 
   return(out)
