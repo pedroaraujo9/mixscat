@@ -49,7 +49,7 @@ calibrate_lambda = function(w,
                             lambda_grid) {
 
   model_path = system.file(
-    "stan", "stan_for_opt.rds", package = "bmixscat"
+    "stan", "stan_for_opt.rds", package = "mixscat"
   )
 
   stan_model = readRDS(model_path)
