@@ -22,6 +22,7 @@ Imports:
     future.apply,
     ggplot2,
     HDInterval,
+    label.switching,
     magrittr,
     mclust,
     purrr,
