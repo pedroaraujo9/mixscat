@@ -215,7 +215,7 @@ find_init_w = function(M,
       X = kronecker(create_dummy(w, M), model_data$spline$B),
       lambda = lambda_init,
       stan_model = readRDS(system.file(
-        "stan", "stan_for_opt.rds", package = "bmixscat"
+        "stan", "stan_for_opt.rds", package = "mixscat"
       )),
       model_data = model_data
     )
