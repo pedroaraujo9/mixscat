@@ -21,8 +21,9 @@ fit_mixscat(
   w_dirichlet = 1,
   n_cores = 1,
   verbose = TRUE,
-  init_control = list(lambda_init = 1, lambda_grid = seq(from = 0.01, to = 5, length.out
-    = 50), n_init = 100, init_iters = 20, init_burn_in = 10, init_thin = 2)
+  init_control = list(lambda_init = 1, n_init = 5, lambda_grid = seq(from = 0.01, to = 5,
+    length.out = 30), init_iters = 10, init_burn_in = 5, init_thin = 2, init_final_run =
+    100, verbose = FALSE)
 )
 }
 \arguments{

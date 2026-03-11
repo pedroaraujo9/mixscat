@@ -59,11 +59,13 @@ fit_mixscat = function(M,
                        verbose = TRUE,
                        init_control = list(
                          lambda_init = 1,
-                         lambda_grid = seq(from = 0.01, to = 5, length.out = 50),
-                         n_init = 100,
-                         init_iters = 20,
-                         init_burn_in = 10,
-                         init_thin = 2
+                         n_init = 5,
+                         lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
+                         init_iters = 10,
+                         init_burn_in = 5,
+                         init_thin = 2,
+                         init_final_run = 100,
+                         verbose = FALSE
                        )) {
 
   init_time = Sys.time()
@@ -80,7 +82,7 @@ fit_mixscat = function(M,
     iters = iters,
     burn_in = burn_in,
     thin = thin,
-    lambda_init = init_control$lambda_init,
+    init_control = init_control,
     seed = seed
   )
 
@@ -113,12 +115,7 @@ fit_mixscat = function(M,
         iters = iters,
         burn_in = burn_in,
         thin = thin,
-        lambda_init = init_control$lambda_init,
-        lambda_grid = init_control$lambda_grid,
-        n_init = init_control$n_init,
-        init_iters = init_control$init_iters,
-        init_burn_in = init_control$init_burn_in,
-        init_thin = init_control$init_thin,
+        init_control = init_control,
         seed = seed,
         verbose = verbose
       )
