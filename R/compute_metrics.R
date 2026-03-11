@@ -36,9 +36,15 @@ compute_metrics = function(sample_list, lambda, model_data) {
 
   penal_BICM = -2 * avg_logpenal + (log(n)-1) * logpenal_complex
   BICM = -2 * avg_loglike + (log(n)-1) * loglike_complex
+  ASW = ifelse(
+    M == 1,
+    NA,
+    fpc::cluster.stats(d = model_data$data$z_dist, clustering = w)$avg.silwidth
+  )
 
   out = data.frame(
     M = M,
+    ASW = ASW,
     BICM = BICM,
     penal_BICM = penal_BICM,
     avg_loglike = avg_loglike,

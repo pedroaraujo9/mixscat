@@ -1,4 +1,5 @@
 single_run = function(M,
+                      w = NULL,
                       model_data,
                       lambda,
                       init_list,
@@ -6,7 +7,9 @@ single_run = function(M,
                       burn_in,
                       thin,
                       verbose,
-                      seed) {
+                      seed = NULL) {
+
+  if(!is.null(seed)) set.seed(seed)
 
   init_time = Sys.time()
 
@@ -34,7 +37,17 @@ single_run = function(M,
     seed = seed
   )
 
-  w = sample_list$w[1, ]
+  if(is.null(w)) {
+
+    w = sample_list$w[1, ]
+    update_w = TRUE
+
+  }else{
+
+    update_w = FALSE
+
+  }
+
   beta = sample_list$beta[1,,]
   pw = sample_list$pw[1,]
 
@@ -48,7 +61,8 @@ single_run = function(M,
       beta = beta,
       w = w,
       pw = pw,
-      model_data = model_data
+      model_data = model_data,
+      update_w = update_w
     )
 
     beta = update$beta

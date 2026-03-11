@@ -12,12 +12,9 @@ pipeline(
   burn_in = 500,
   thin = 5,
   lambda = NULL,
-  lambda_init = 1,
-  lambda_grid = seq(0.05, 5, length.out = 30),
-  n_init = 10,
-  init_iters = 30,
-  init_burn_in = 15,
-  init_thin = 2,
+  init_control = list(lambda_init = 1, n_init = 5, lambda_grid = seq(from = 0.01, to = 5,
+    length.out = 30), init_iters = 10, init_burn_in = 5, init_thin = 2, init_final_run =
+    100, verbose = FALSE),
   verbose = TRUE,
   seed
 )
@@ -43,26 +40,28 @@ iteration is retained. Default is 5.}
 
 \item{lambda}{Numeric value for the ridge regularization parameter. If NULL
 (default), lambda will be automatically calibrated using cross-validation
-across \code{lambda_grid}.}
+across the \code{lambda_grid} values in \code{init_control}.}
 
-\item{lambda_init}{Numeric initial lambda value to use during initialization
-when \code{lambda = NULL}. Default is 1. Ignored if \code{lambda} is specified.}
-
-\item{lambda_grid}{Numeric vector of lambda values to evaluate during calibration.
-Default is \code{seq(0.05, 5, length.out = 30)}. Only used when \code{lambda = NULL}.}
-
-\item{n_init}{Integer specifying the number of random initializations to try
-when finding good starting values. The initialization with highest posterior
-probability is selected. Default is 10.}
-
-\item{init_iters}{Integer specifying the number of MCMC iterations to run for
-each initialization attempt. Default is 30.}
-
-\item{init_burn_in}{Integer specifying burn-in iterations for each initialization
-run. Default is 15.}
-
-\item{init_thin}{Integer specifying thinning interval for initialization runs.
-Default is 2.}
+\item{init_control}{List of settings controlling initialization and lambda
+calibration. Elements:
+\describe{
+\item{\code{lambda_init}}{Numeric initial lambda value used during
+initialization when \code{lambda = NULL}. Default is 1.}
+\item{\code{n_init}}{Integer number of random initializations to try.
+The one with highest log-posterior is selected. Default is 5.}
+\item{\code{lambda_grid}}{Numeric vector of lambda values to evaluate
+during calibration. Default is \code{seq(0.01, 5, length.out = 30)}.}
+\item{\code{init_iters}}{Integer number of MCMC iterations per
+initialization attempt. Default is 10.}
+\item{\code{init_burn_in}}{Integer burn-in iterations for each
+initialization run. Default is 5.}
+\item{\code{init_thin}}{Integer thinning interval for initialization
+runs. Default is 2.}
+\item{\code{init_final_run}}{Integer number of iterations for the final
+initialization run used to obtain starting values. Default is 100.}
+\item{\code{verbose}}{Logical whether to print progress during
+initialization. Default is FALSE.}
+}}
 
 \item{verbose}{Logical indicating whether to print progress messages during
 execution. Default is TRUE.}

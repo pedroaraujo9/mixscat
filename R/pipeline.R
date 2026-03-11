@@ -20,20 +20,27 @@
 #'   iteration is retained. Default is 5.
 #' @param lambda Numeric value for the ridge regularization parameter. If NULL
 #'   (default), lambda will be automatically calibrated using cross-validation
-#'   across \code{lambda_grid}.
-#' @param lambda_init Numeric initial lambda value to use during initialization
-#'   when \code{lambda = NULL}. Default is 1. Ignored if \code{lambda} is specified.
-#' @param lambda_grid Numeric vector of lambda values to evaluate during calibration.
-#'   Default is \code{seq(0.05, 5, length.out = 30)}. Only used when \code{lambda = NULL}.
-#' @param n_init Integer specifying the number of random initializations to try
-#'   when finding good starting values. The initialization with highest posterior
-#'   probability is selected. Default is 10.
-#' @param init_iters Integer specifying the number of MCMC iterations to run for
-#'   each initialization attempt. Default is 30.
-#' @param init_burn_in Integer specifying burn-in iterations for each initialization
-#'   run. Default is 15.
-#' @param init_thin Integer specifying thinning interval for initialization runs.
-#'   Default is 2.
+#'   across the \code{lambda_grid} values in \code{init_control}.
+#' @param init_control List of settings controlling initialization and lambda
+#'   calibration. Elements:
+#'   \describe{
+#'     \item{\code{lambda_init}}{Numeric initial lambda value used during
+#'       initialization when \code{lambda = NULL}. Default is 1.}
+#'     \item{\code{n_init}}{Integer number of random initializations to try.
+#'       The one with highest log-posterior is selected. Default is 5.}
+#'     \item{\code{lambda_grid}}{Numeric vector of lambda values to evaluate
+#'       during calibration. Default is \code{seq(0.01, 5, length.out = 30)}.}
+#'     \item{\code{init_iters}}{Integer number of MCMC iterations per
+#'       initialization attempt. Default is 10.}
+#'     \item{\code{init_burn_in}}{Integer burn-in iterations for each
+#'       initialization run. Default is 5.}
+#'     \item{\code{init_thin}}{Integer thinning interval for initialization
+#'       runs. Default is 2.}
+#'     \item{\code{init_final_run}}{Integer number of iterations for the final
+#'       initialization run used to obtain starting values. Default is 100.}
+#'     \item{\code{verbose}}{Logical whether to print progress during
+#'       initialization. Default is FALSE.}
+#'   }
 #' @param verbose Logical indicating whether to print progress messages during
 #'   execution. Default is TRUE.
 #' @param seed Integer seed for random number generation to ensure reproducibility.
@@ -125,29 +132,31 @@ pipeline = function(model_data,
                     burn_in = 500,
                     thin = 5,
                     lambda = NULL,
-                    lambda_init = 1,
-                    lambda_grid = seq(0.05, 5, length.out = 30),
-                    n_init = 10,
-                    init_iters = 30,
-                    init_burn_in = 15,
-                    init_thin = 2,
+                    init_control = list(
+                      lambda_init = 1,
+                      n_init = 5,
+                      lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
+                      init_iters = 10,
+                      init_burn_in = 5,
+                      init_thin = 2,
+                      init_final_run = 100,
+                      verbose = FALSE
+                    ),
                     verbose = TRUE,
                     seed) {
 
   set.seed(seed)
 
+  #### initialization ####
   if(verbose) cat("Finding init values\n")
+
+  if(!is.null(lambda)) init_control$lambda_init = lambda
 
   init_run = find_init_w(
     M = M,
     model_data = model_data,
-    lambda_init = ifelse(is.null(lambda), lambda_init, lambda),
-    n_init = n_init,
-    init_iters = init_iters,
-    init_burn_in = init_burn_in,
-    init_thin = init_thin,
-    verbose = TRUE,
-    seed
+    init_control = init_control,
+    seed = seed
   )
 
   if(verbose) cat("Finding lambda\n")
@@ -158,7 +167,7 @@ pipeline = function(model_data,
       w = init_run$w0,
       M = M,
       model_data = model_data,
-      lambda_grid = lambda_grid
+      lambda_grid = init_control$lambda_grid
     )
 
   }else{
@@ -169,13 +178,26 @@ pipeline = function(model_data,
 
   }
 
+  init_run_opt = single_run(
+    M = M,
+    model_data = model_data,
+    lambda = lambda_opt$best_lambda,
+    w = init_run$w0,
+    init_list = init_run,
+    iters = init_control$init_final_run,
+    burn_in = floor(init_control$init_final_run/2),
+    thin = 1,
+    seed = seed,
+    verbose = FALSE
+  )
 
   init_list = list(
     w = init_run$w0,
-    beta = init_run$beta0,
-    pw = init_run$pw0
+    beta = init_run_opt$sample_list$beta |> compute_post_stat(),
+    pw = init_run_opt$sample_list$pw %>% colMeans()
   )
 
+  #### MCMC ####
   cat("Running chains \n")
 
   runs = lapply(1:chains, function(i){
@@ -184,6 +206,7 @@ pipeline = function(model_data,
 
     single_run(
       M = M,
+      w = NULL,
       model_data = model_data,
       lambda = lambda_opt$best_lambda,
       init_list = init_list,
@@ -196,9 +219,16 @@ pipeline = function(model_data,
 
   })
 
+  #### convergence check ####
   logpost_conv_check = check_conv_logpost(runs = runs)
   beta_conv_check = check_conv_param(runs = runs, param_name = "beta")
 
+  conv_check = list(
+    logpost = logpost_conv_check,
+    beta = beta_conv_check
+  )
+
+  #### post-processing ####
   sample_list = combine_chains(runs = runs, model_data)
 
   for(i in 1:nrow(sample_list$logpost)) {
@@ -207,19 +237,18 @@ pipeline = function(model_data,
     )
   }
 
+  #### clustering quality metrics ####
   metrics = compute_metrics(
     sample_list = sample_list,
     lambda = lambda_opt$best_lambda,
     model_data = model_data
   )
 
+  #### return ####
   out = list(
     sample_list = sample_list,
     lambda_opt = lambda_opt,
-    conv_check = list(
-      logpost = logpost_conv_check,
-      beta = beta_conv_check
-    ),
+    conv_check = conv_check,
     metrics = metrics,
     w = sample_list$w |> comp_class()
   )

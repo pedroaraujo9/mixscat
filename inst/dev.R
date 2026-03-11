@@ -1,5 +1,5 @@
 library(tidyverse)
-devtools::install()
+devtools::load_all()
 #### data ####
 data = readRDS("~/Documents/GitHub/clustering-mortality-two-step/data/input-data-cluster.rds")
 
@@ -23,7 +23,7 @@ male_levels = z_male %>%
 
 z = factor(z_male, levels = male_levels)
 
-M = 1:2
+M = 1:20
 n_basis = 10
 iters = 100
 burn_in = 50
@@ -37,15 +37,18 @@ w_dirichlet = 1
 
 init_control = list(
   lambda_init = 1,
-  lambda_grid = seq(from = 0.01, to = 5, length.out = 50),
-  n_init = 2,
+  n_init = 5,
+  lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
   init_iters = 10,
   init_burn_in = 5,
-  init_thin = 2
+  init_thin = 2,
+  init_final_run = 100,
+  verbose = FALSE
 )
 
+
 verbose = TRUE
-n_cores = 2
+n_cores = 1
 
 devtools::load_all()
 fit = fit_mixscat(
@@ -70,7 +73,7 @@ fit = fit_mixscat(
 fit$cluster_metrics
 fit$clusters[, 1] %>% unique()
 fit$best_lambda %>% do.call(c, .)
-
+fit$cluster_metrics$ASW %>% plot()
 devtools::load_all()
 model_data = create_model_data(
   z = z, id = id, time = time

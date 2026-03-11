@@ -32,6 +32,10 @@ create_model_data = function(z,
   n_id = length(id_unique)
   n_time = length(time_unique)
 
+  Z_matrix = matrix(z, nrow = n_id, ncol = n_time, byrow = TRUE)
+  z_dist = TraMineR::seqdef(Z_matrix) |> TraMineR::seqdist(method = "HAM")
+  colnames(z_dist) = rownames(z_dist) =  id_unique
+
   time_seq = time - min(time) + 1
   time_seq_unique = unique(time_seq)
 
@@ -58,6 +62,7 @@ create_model_data = function(z,
     z_label = data$z_label,
     Z = Z,
     z_levels = z_levels,
+    z_dist = z_dist,
     id = id,
     time = time,
     time_seq = time_seq,

@@ -1,7 +1,8 @@
 update_chain = function(beta,
                         w,
                         pw,
-                        model_data) {
+                        model_data,
+                        update_w = TRUE) {
 
   beta = update_beta(
     beta = beta,
@@ -14,14 +15,23 @@ update_chain = function(beta,
     model_data = model_data
   )
 
-  w_out = update_w(
-    beta = beta,
-    pw = pw,
-    model_data = model_data
-  )
+  if(update_w == TRUE) {
 
-  w = w_out$w
-  w_post_prob = w_out$w_post_prob
+    w_out = update_w(
+      beta = beta,
+      pw = pw,
+      model_data = model_data
+    )
+
+    w = w_out$w
+    w_post_prob = w_out$w_post_prob
+
+  } else {
+
+    w_post_prob = create_dummy(w, G = length(pw))
+
+  }
+
 
   out = list(
     beta = beta,
