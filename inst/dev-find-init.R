@@ -28,7 +28,7 @@ data %>%
   ggplot(aes(x=year, y=country, fill=factor(Z5))) +
   geom_tile(color="black")
 
-M = 10
+M = 2
 n_basis = 10
 iters = 100
 burn_in = 50
@@ -42,10 +42,10 @@ dirichlet_param = 1 #1/M
 
 init_control = list(
   lambda_init = 1,
-  n_init = 100,
+  n_init = 10,
   lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
-  init_iters = 20,
-  init_burn_in = 1,
+  init_iters = 100,
+  init_burn_in = 0,
   init_thin = 1,
   init_final_run = 50,
   verbose = TRUE
@@ -120,4 +120,44 @@ mclust::adjustedRandIndex(init_runs[[1]]$w, init_runs[[3]]$w)
 mclust::adjustedRandIndex(init_runs[[2]]$w, init_runs[[3]]$w)
 
 init_runs[[1]]$w %>% sort()
+
+
+run1 = single_run(
+  M = M,
+  w = NULL,
+  model_data = model_data,
+  lambda = init_control$lambda_init,
+  init_list = NULL,
+  iters = init_control$init_iters,
+  burn_in = init_control$init_burn_in,
+  thin = init_control$init_thin,
+  verbose = TRUE,
+  seed = 1
+)
+
+run2 = single_run(
+  M = M,
+  w = NULL,
+  model_data = model_data,
+  lambda = init_control$lambda_init,
+  init_list = NULL,
+  iters = init_control$init_iters,
+  burn_in = init_control$init_burn_in,
+  thin = init_control$init_thin,
+  verbose = TRUE,
+  seed = 4
+)
+
+w1 = run1$sample_list$w[nrow(run1$sample_list$w), ]
+w2 = run2$sample_list$w[nrow(run2$sample_list$w), ]
+mclust::adjustedRandIndex(w1, w2)
+
+
+
+
+
+
+
+
+
 

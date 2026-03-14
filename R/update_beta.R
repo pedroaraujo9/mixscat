@@ -35,6 +35,7 @@ update_beta = function(beta,
 
   W = create_dummy(w, M)
   X = kronecker(W, B)
+  X = cbind(1, X)
   Z = model_data$data$Z
 
   for(g in 1:(G-1)) {

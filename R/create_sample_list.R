@@ -25,7 +25,7 @@ create_sample_list = function(M,
   #### global clustering parameters ####
   sample_list$beta = gen_sample_array(
     iters = eff_iters,
-    dimension = c(M*n_basis, G),
+    dimension = c(M*(n_basis) + 1, G),
     sampler = function(x) rnorm(x, sd = 0.01),
     init = init_list$beta
   )

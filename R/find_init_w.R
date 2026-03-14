@@ -125,10 +125,12 @@ find_init_w2 = function(M,
       iters = init_control$init_iters,
       burn_in = init_control$init_burn_in,
       thin = init_control$init_thin,
-      verbose = FALSE,
+      verbose = TRUE,
       seed = NULL
     )
 
+    run1$sample_list$w[, 50]
+    run1$sample_list$w %>% comp_class() %>% sort()
     w = run1$sample_list$w[nrow(run1$sample_list$w), ]
 
     run2 = single_run(

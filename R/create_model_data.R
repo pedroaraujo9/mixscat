@@ -53,7 +53,7 @@ create_model_data = function(z,
 
   B = basis_funcions$model_matrix
   S = basis_funcions$nD
-  S[1, 1] = intercept_penalty
+  S[1, 1] = 1
 
   out = list()
 

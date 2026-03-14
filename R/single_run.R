@@ -17,8 +17,9 @@ single_run = function(M,
   S = model_data$spline$S
   S = lambda * S
   S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
-  model_data$spline$S_expand = kronecker(diag(M), S)
-  sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
+  S_expand = diag(c(model_data$spline$intercept_penalty, rep(diag(S), times = M)))
+  model_data$spline$S_expand = S_expand
+  sd_beta = rbind(model_data$spline$intercept_penalty, compute_beta_sd_matrix(model_data, lambda, M))
 
   sample_list = create_sample_list(
     M = M,
