@@ -132,6 +132,7 @@ pipeline = function(model_data,
                     burn_in = 500,
                     thin = 5,
                     lambda = NULL,
+                    dirichlet_param = 1,
                     init_control = list(
                       lambda_init = 1,
                       n_init = 5,
@@ -152,38 +153,31 @@ pipeline = function(model_data,
 
   if(!is.null(lambda)) init_control$lambda_init = lambda
 
-  init_run = find_init_w(
+  init_run = find_init_w2(
     M = M,
     model_data = model_data,
     init_control = init_control,
     seed = seed
   )
 
-  if(verbose) cat("Finding lambda\n")
+  lambda_opt = calibrate_lambda(
+    w = init_run$w,
+    M = init_run$M,
+    model_data = model_data,
+    lambda_grid = init_control$lambda_grid
+  )
 
-  if(is.null(lambda)) {
-
-    lambda_opt = calibrate_lambda(
-      w = init_run$w0,
-      M = M,
-      model_data = model_data,
-      lambda_grid = init_control$lambda_grid
-    )
-
-  }else{
-
-    lambda_opt = list(
-      best_lambda = lambda
-    )
-
-  }
+  init_list = list(
+    beta = init_run$sample_list$beta |> compute_post_stat(),
+    pw = init_run$sample_list$pw |> colMeans()
+  )
 
   init_run_opt = single_run(
     M = M,
     model_data = model_data,
     lambda = lambda_opt$best_lambda,
-    w = init_run$w0,
-    init_list = init_run,
+    w = init_run$w,
+    init_list = NULL,
     iters = init_control$init_final_run,
     burn_in = floor(init_control$init_final_run/2),
     thin = 1,
@@ -192,7 +186,7 @@ pipeline = function(model_data,
   )
 
   init_list = list(
-    w = init_run$w0,
+    w = init_run$w,
     beta = init_run_opt$sample_list$beta |> compute_post_stat(),
     pw = init_run_opt$sample_list$pw %>% colMeans()
   )
@@ -213,8 +207,8 @@ pipeline = function(model_data,
       iters = iters,
       burn_in = burn_in,
       thin = thin,
-      seed = NULL,
-      verbose = verbose
+      verbose = verbose,
+      seed = NULL
     )
 
   })

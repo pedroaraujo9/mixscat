@@ -1,4 +1,4 @@
-update_w = function(beta, z, pw, model_data) {
+update_w = function(beta, z, pw, model_data, temperature = 1) {
 
   G = model_data$dims$G
   M = model_data$dims$M
@@ -23,7 +23,7 @@ update_w = function(beta, z, pw, model_data) {
 
     log_pz = log(rowSums(Z * prob_group))
 
-    ll[, m] = fast_aggregate_sum(log_pz, id)[, 1] + log(pw[m])
+    ll[, m] = fast_aggregate_sum(log_pz, id)[, 1] + log(pw[m]) - log(temperature)
 
   }
 

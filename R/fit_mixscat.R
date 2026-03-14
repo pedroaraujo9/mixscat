@@ -54,7 +54,7 @@ fit_mixscat = function(M,
                        seed,
                        lambda = NULL,
                        intercept_penalty = 1,
-                       w_dirichlet = 1,
+                       dirichlet_param = 1,
                        n_cores = 1,
                        verbose = TRUE,
                        init_control = list(
@@ -76,7 +76,7 @@ fit_mixscat = function(M,
     time = time,
     n_basis = n_basis,
     intercept_penalty = intercept_penalty,
-    w_dirichlet = w_dirichlet,
+    dirichlet_param = dirichlet_param,
     M = M,
     chains = chains,
     iters = iters,
@@ -92,7 +92,7 @@ fit_mixscat = function(M,
     time = time,
     n_basis = n_basis,
     intercept_penalty = intercept_penalty,
-    w_dirichlet = w_dirichlet
+    dirichlet_param = dirichlet_param
   )
 
   if(n_cores > 1) {
@@ -101,7 +101,7 @@ fit_mixscat = function(M,
     future::plan(future::sequential, split = TRUE)
   }
 
-  if(verbose) cat("Starting parallel runs with", n_cores, "cores.\n")
+  if(verbose) cat("Starting runs with", n_cores, "cores.\n")
 
   runs = future.apply::future_lapply(
     M, function(m){

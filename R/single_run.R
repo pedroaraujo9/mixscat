@@ -14,18 +14,11 @@ single_run = function(M,
   init_time = Sys.time()
 
   model_data$dims$M = M
-
   S = model_data$spline$S
-  S = S * lambda
-  S[1, 1] = model_data$spline$intercept_penalty
-  model_data$spline$S_expand = S_expand = kronecker(diag(M), S)
-
-  model_data$spline$sd_beta = matrix(
-    1/sqrt(diag(S_expand)),
-    ncol = 4,
-    nrow = length(diag(S_expand)),
-    byrow = F
-  )
+  S = lambda * S
+  S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
+  model_data$spline$S_expand = kronecker(diag(M), S)
+  sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
 
   sample_list = create_sample_list(
     M = M,
@@ -40,11 +33,11 @@ single_run = function(M,
   if(is.null(w)) {
 
     w = sample_list$w[1, ]
-    update_w = TRUE
+    update_w_iter = TRUE
 
   }else{
 
-    update_w = FALSE
+    update_w_iter = FALSE
 
   }
 
@@ -62,7 +55,7 @@ single_run = function(M,
       w = w,
       pw = pw,
       model_data = model_data,
-      update_w = update_w
+      update_w_iter = update_w_iter
     )
 
     beta = update$beta
@@ -81,7 +74,8 @@ single_run = function(M,
         beta = beta,
         w = w,
         pw = pw,
-        model_data = model_data
+        model_data = model_data,
+        sd_beta = sd_beta
       )
 
       i = i + 1

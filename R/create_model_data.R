@@ -3,7 +3,7 @@ create_model_data = function(z,
                              time,
                              n_basis = 10,
                              intercept_penalty = 1,
-                             w_dirichlet = 1) {
+                             dirichlet_param = 1) {
 
   z_levels = sort(unique(z))
   G = length(z_levels)
@@ -33,7 +33,7 @@ create_model_data = function(z,
   n_time = length(time_unique)
 
   Z_matrix = matrix(z, nrow = n_id, ncol = n_time, byrow = TRUE)
-  z_dist = TraMineR::seqdef(Z_matrix) |> TraMineR::seqdist(method = "HAM")
+  z_dist = TraMineR::seqdef(Z_matrix) |> TraMineR::seqdist(method = "DHD")
   colnames(z_dist) = rownames(z_dist) =  id_unique
 
   time_seq = time - min(time) + 1
@@ -78,7 +78,7 @@ create_model_data = function(z,
   )
 
   out$spline = list(
-    w_dirichlet = w_dirichlet,
+    dirichlet_param = dirichlet_param,
     n_basis = n_basis,
     intercept_penalty = intercept_penalty,
     B = B,
