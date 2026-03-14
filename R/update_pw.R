@@ -7,7 +7,7 @@ update_pw = function(w, dirichlet_param = 1, model_data) {
     w = factor(w, levels = 1:M, ordered = T)
     nw = w |> table()
     pw = extraDistr::rdirichlet(1, alpha = as.numeric(nw + dirichlet_param)) |> as.numeric()
-    pw[pw < 1e-300] = 1e-300
+    pw[pw < 1e-100] = 1e-100
 
   }else{
 

@@ -26,7 +26,7 @@ find_init_w = function(M,
   S = model_data$spline$S
   S = init_control$lambda_init * S
   S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
-  model_data$spline$S_expand = kronecker(diag(M), S)
+  model_data$spline$S_expand = kronecker(diag(M+1), S)
 
   # run different initializations
   init_runs = lapply(1:init_control$n_init, function(i){
@@ -34,8 +34,8 @@ find_init_w = function(M,
     if(init_control$verbose) cat(paste0("init iter: ", i, "\r"))
 
     beta = matrix(
-      rnorm(M * n_basis * (G - 1), sd = 0.01),
-      nrow = M * n_basis,
+      rnorm((M + 1) * n_basis * (G - 1), sd = 0.01),
+      nrow = (M + 1) * n_basis,
       ncol = G - 1
     )
 
@@ -46,7 +46,7 @@ find_init_w = function(M,
     names(w) = id_unique
     model_data$dims$M = M
 
-    for(i in 1:init_iters) {
+    for(i in 1:20) {
 
       update = update_chain(
         beta = beta,
@@ -69,6 +69,7 @@ find_init_w = function(M,
 
   ws = init_runs %>% do.call(rbind, .)
 
+  ari = mclust::adjustedRandIndex
   ari_matrix = lapply(1:nrow(ws), function(j){
     lapply(1:nrow(ws), function(i){
       ari(ws[i, ], ws[j, ])
@@ -83,8 +84,6 @@ find_init_w = function(M,
     lambda = init_control$lambda_init,
     model_data = model_data
   )
-
-
 
   # select w with the highest mode
   logpost = purrr::map_dbl(init_runs, ~{.x$logpost})
@@ -122,14 +121,14 @@ find_init_w2 = function(M,
       model_data = model_data,
       lambda = init_control$lambda_init,
       init_list = NULL,
-      iters = init_control$init_iters,
-      burn_in = init_control$init_burn_in,
-      thin = init_control$init_thin,
+      iters = 50, #init_control$init_iters,
+      burn_in = 0, #init_control$init_burn_in,
+      thin = 1, #init_control$init_thin,
       verbose = FALSE,
       seed = NULL
     )
 
-    w = run1$sample_list$w[nrow(run1$sample_list$w), ]
+    w2 = run1$sample_list$w[nrow(run1$sample_list$w), ]
 
     run2 = single_run(
       M = M,

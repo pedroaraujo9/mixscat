@@ -23,17 +23,18 @@ augment_beta = function(g,
 
 update_beta = function(beta,
                        w,
-                       model_data) {
+                       model_data,
+                       S) {
 
   G = model_data$dims$G
   M = model_data$dims$M
 
   B = model_data$spline$B
-  S = model_data$spline$S_expand
 
   beta = rbind(beta)
 
   W = create_dummy(w, M)
+  W = cbind(1, W)
   X = kronecker(W, B)
   Z = model_data$data$Z
 

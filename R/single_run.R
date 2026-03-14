@@ -7,6 +7,7 @@ single_run = function(M,
                       burn_in,
                       thin,
                       verbose,
+                      temperature,
                       seed = NULL) {
 
   if(!is.null(seed)) set.seed(seed)
@@ -17,8 +18,8 @@ single_run = function(M,
   S = model_data$spline$S
   S = lambda * S
   S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
-  model_data$spline$S_expand = kronecker(diag(M), S)
-  sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
+  model_data$spline$S_expand = S_expand
+  sd_beta = compute_beta_sd_matrix(model_data, lambda, M+1)
 
   sample_list = create_sample_list(
     M = M,
@@ -33,6 +34,7 @@ single_run = function(M,
   if(is.null(w)) {
 
     w = sample_list$w[1, ]
+    # w = rep(1, times = model_data$dims$n_id)
     update_w_iter = TRUE
 
   }else{
@@ -50,12 +52,17 @@ single_run = function(M,
 
     if(verbose) cat(iter, "\r")
 
+    s = diag(S)
+    s = c(s, rep(temperature[iter] * s, times = M))
+    S_expand = diag(s)
+
     update = update_chain(
       beta = beta,
       w = w,
       pw = pw,
       model_data = model_data,
-      update_w_iter = update_w_iter
+      update_w_iter = update_w_iter,
+      S = S_expand
     )
 
     beta = update$beta
@@ -86,7 +93,8 @@ single_run = function(M,
 
   out = list(
     sample_list = sample_list,
-    init = init_list
+    init = init_list,
+    S_expand = S_expand
   )
 
   end_time = Sys.time()

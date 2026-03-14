@@ -3,12 +3,14 @@ update_chain = function(beta,
                         pw,
                         model_data,
                         update_w_iter = TRUE,
+                        S,
                         temperature = 1) {
 
   beta = update_beta(
     beta = beta,
     w = w,
-    model_data = model_data
+    model_data = model_data,
+    S = S
   )
 
   pw = update_pw(
