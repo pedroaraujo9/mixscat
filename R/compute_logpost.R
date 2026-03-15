@@ -7,7 +7,9 @@ compute_logpost = function(beta, w, pw, model_data, sd_beta) {
   n_basis = model_data$spline$n_basis
   G = model_data$dims$G
 
-  p = predict_prob_cpp(M, w, B, beta)
+  W = fast_dummy_dense(w, M)
+  W[, 1] = 1
+  p = sofmax_cpp(kronecker(W, B) %*% beta)
   log_like = sum(log(rowSums(Z * p)))
   log_beta_prior = sum(dnorm(beta[, -G], mean = 0, sd = sd_beta, log = T))
 

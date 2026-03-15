@@ -25,7 +25,7 @@ create_sample_list = function(M,
   #### global clustering parameters ####
   sample_list$beta = gen_sample_array(
     iters = eff_iters,
-    dimension = c((M + 1)*n_basis, G),
+    dimension = c((M)*n_basis, G),
     sampler = function(x) rnorm(x, sd = 0.01),
     init = init_list$beta
   )
@@ -62,7 +62,7 @@ create_sample_list = function(M,
   sample_list$spline_probs = gen_sample_array(
     iters = eff_iters,
     dimension = c((M) * n_time, G),
-    sampler = function(x) predict_prob_cpp(M = M, w = 1:M, B, sample_list$beta[1,,]),
+    sampler = function(x) 1/M,
     init = init_list$spline_probs
   )
 

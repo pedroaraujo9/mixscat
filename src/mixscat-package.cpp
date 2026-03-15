@@ -112,8 +112,8 @@ arma::mat predict_prob_cpp(int& M,
                            arma::mat& beta) {
 
   arma::mat W = fast_dummy_dense(w, M);
-  arma::mat W_agg = arma::join_rows(arma::ones<arma::mat>(W.n_rows, 1), W);
-  arma::mat X = arma::kron(W_agg, B);
+  W.col(0) = 1.0;
+  arma::mat X = arma::kron(W, B);
   arma::mat prob = sofmax_cpp(X * beta);
   return prob;
 }

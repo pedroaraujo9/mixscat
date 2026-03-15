@@ -8,6 +8,7 @@ single_run = function(M,
                       thin,
                       verbose,
                       temperature,
+                      w_temp_vec,
                       seed = NULL) {
 
   if(!is.null(seed)) set.seed(seed)
@@ -18,8 +19,7 @@ single_run = function(M,
   S = model_data$spline$S
   S = lambda * S
   S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
-  model_data$spline$S_expand = S_expand
-  sd_beta = compute_beta_sd_matrix(model_data, lambda, M+1)
+  #sd_beta = compute_beta_sd_matrix(model_data, lambda, M+1)
 
   sample_list = create_sample_list(
     M = M,
@@ -34,7 +34,7 @@ single_run = function(M,
   if(is.null(w)) {
 
     w = sample_list$w[1, ]
-    # w = rep(1, times = model_data$dims$n_id)
+    w = rep(1, times = model_data$dims$n_id)
     update_w_iter = TRUE
 
   }else{
@@ -53,7 +53,7 @@ single_run = function(M,
     if(verbose) cat(iter, "\r")
 
     s = diag(S)
-    s = c(s, rep(temperature[iter] * s, times = M))
+    s = c(s, rep(1 * s, times = M-1))
     S_expand = diag(s)
 
     update = update_chain(
@@ -62,7 +62,9 @@ single_run = function(M,
       pw = pw,
       model_data = model_data,
       update_w_iter = update_w_iter,
-      S = S_expand
+      S = S_expand,
+      w_temp = w_temp_vec[iter],
+      temperature = temperature[iter]
     )
 
     beta = update$beta
@@ -77,13 +79,13 @@ single_run = function(M,
       sample_list$pw[i, ] = pw
       sample_list$w_post_prob[i,,] = w_post_prob
 
-      sample_list$logpost[i, ] = compute_logpost(
-        beta = beta,
-        w = w,
-        pw = pw,
-        model_data = model_data,
-        sd_beta = sd_beta
-      )
+      # sample_list$logpost[i, ] = compute_logpost(
+      #   beta = beta,
+      #   w = w,
+      #   pw = pw,
+      #   model_data = model_data,
+      #   sd_beta = sd_beta
+      # )
 
       i = i + 1
 

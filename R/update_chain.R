@@ -4,7 +4,10 @@ update_chain = function(beta,
                         model_data,
                         update_w_iter = TRUE,
                         S,
-                        temperature = 1) {
+                        temperature = 1,
+                        w_temp = 1) {
+
+  #model_data$spline$B = model_data$spline$B * sqrt(1/temperature)
 
   beta = update_beta(
     beta = beta,
@@ -25,7 +28,7 @@ update_chain = function(beta,
       beta = beta,
       pw = pw,
       model_data = model_data,
-      temperature = temperature
+      w_temp = w_temp
     )
 
     w = w_out$w
@@ -37,6 +40,7 @@ update_chain = function(beta,
 
   }
 
+  #model_data$spline$B = model_data$spline$B * sqrt(temperature)
 
   out = list(
     beta = beta,
