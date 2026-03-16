@@ -1,83 +1,96 @@
 find_init_w = function(M,
                        model_data,
-                       seed,
-                       init_control = list(
-                         lambda_init = 1,
-                         n_init = 30,
-                         init_iters = 30,
-                         init_burn_in = 15,
-                         init_thin = 2,
-                         init_final_run = 100,
-                         verbose = FALSE
-                       )) {
+                       n_init,
+                       init_mcmc_iters,
+                       lambda,
+                       seed = NULL,
+                       verbose = TRUE) {
 
-  set.seed(seed)
+  if(!is.null(seed)) set.seed(seed)
 
-  # run different initializations
-  init_runs = lapply(1:init_control$n_init, function(i){
+  # load stan model to compute log-posterior mode for a fixed w
+  model_path = system.file(
+    "stan", "stan_full_logpost.rds", package = "mixscat"
+  )
 
-    if(verbose) cat(paste0("init iter: ", i, "\r"))
+  stan_model = readRDS(model_path)
 
-    # short chain
+  # w initialization using Ward's method
+  w_init_ward = get_w_ward(M = M, z_dist = model_data$data$z_dist)
+
+  # posterior mode for w_init_ward
+  w_init_opt = find_post_map(
+    M = M,
+    w = w_init_ward,
+    stan_model = stan_model,
+    init_list = NULL,
+    lambda = lambda,
+    model_data = model_data
+  )
+
+  beta_init_ward = w_init_opt$par$beta
+  pw_init_ward = w_init_opt$par$pw
+
+  # runs different inits from ward's method and pick
+  # the one with the highest log-posterior mode
+  init_runs = lapply(1:n_init, function(i){
+
+    if(verbose) cat("Init run:", i, "\r")
+
     run = single_run(
       M = M,
       w = NULL,
       model_data = model_data,
-      lambda = init_control$lambda_init,
-      init_list = NULL,
-      iters = init_control$init_iters,
-      burn_in = init_control$init_burn_in,
-      thin = init_control$init_thin,
-      seed = NULL,
-      verbose = FALSE
+      lambda = lambda,
+      init_list = list(
+        beta = cbind(beta_init_ward, 0),
+        pw = pw_init_ward,
+        w = w_init_ward
+      ),
+      iters = init_mcmc_iters,
+      burn_in = 0,
+      thin = 1,
+      verbose = FALSE,
+      seed = NULL
     )
 
-    w = run$sample_list$w |> comp_class()
+    w = run$sample_list$w[init_mcmc_iters, ]
 
-    # compute log-posterior at the mode
-    opt_w = find_map(
+    opt_run = find_post_map(
       M = M,
-      X = kronecker(create_dummy(w, M), model_data$spline$B),
-      lambda = init_control$lambda_init,
-      stan_model = readRDS(system.file(
-        "stan", "stan_for_opt.rds", package = "mixscat"
-      )),
+      w = w,
+      stan_model = stan_model,
+      init_list = NULL,
+      lambda = lambda,
       model_data = model_data
     )
 
-    run$logpost = opt_w$opt_fit$par$log_posterior
-    run$beta = cbind(opt_w$opt_fit$par$beta, 0)
-    run$w = w
+    logpost = opt_run$par$log_like
 
-    return(run)
+    list(
+      logpost = logpost,
+      beta = opt_run$par$beta,
+      pw = opt_run$par$pw,
+      w = w
+    )
 
   })
 
-  # select w with the highest mode
-  logpost = purrr::map_dbl(init_runs, ~{.x$logpost})
-  max_logpost = which.max(logpost)
-
-  w0 = init_runs[[max_logpost]]$w
-  beta0 = init_runs[[max_logpost]]$beta
-  pw0 = w0 |> factor(levels = 1:M) |> table() |> prop.table()
-  pw0[pw0 == 0] = 1e-300
+  idx = init_runs %>% purrr::map_dbl(~.x$logpost) %>% which.max()
+  w_init = init_runs[[idx]]$w
+  beta_init = init_runs[[idx]]$beta
+  pw_init = init_runs[[idx]]$pw
 
   out = list(
-    w0 = w0,
-    beta0 = beta0,
-    pw0 = pw0
+    w = w_init,
+    beta = cbind(beta_init, 0),
+    pw = pw_init,
+    ari_init = mclust::adjustedRandIndex(w_init_ward, w_init)
   )
 
   return(out)
 
 }
-
-
-
-
-
-
-
 
 
 

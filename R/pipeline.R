@@ -127,74 +127,30 @@
 #' @export
 pipeline = function(model_data,
                     M,
-                    chains = 2,
-                    iters = 1000,
-                    burn_in = 500,
-                    thin = 5,
-                    lambda = NULL,
-                    init_control = list(
-                      lambda_init = 1,
-                      n_init = 5,
-                      lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
-                      init_iters = 10,
-                      init_burn_in = 5,
-                      init_thin = 2,
-                      init_final_run = 100,
-                      verbose = FALSE
-                    ),
-                    verbose = TRUE,
-                    seed) {
+                    chains,
+                    iters,
+                    burn_in,
+                    thin,
+                    lambda,
+                    dirichlet_param,
+                    seed,
+                    n_init,
+                    init_mcmc_iters,
+                    verbose = TRUE) {
 
-  set.seed(seed)
+  if(!is.null(seed)) set.seed(seed)
 
   #### initialization ####
   if(verbose) cat("Finding init values\n")
 
-  if(!is.null(lambda)) init_control$lambda_init = lambda
-
   init_run = find_init_w(
     M = M,
     model_data = model_data,
-    init_control = init_control,
-    seed = seed
-  )
-
-  if(verbose) cat("Finding lambda\n")
-
-  if(is.null(lambda)) {
-
-    lambda_opt = calibrate_lambda(
-      w = init_run$w0,
-      M = M,
-      model_data = model_data,
-      lambda_grid = init_control$lambda_grid
-    )
-
-  }else{
-
-    lambda_opt = list(
-      best_lambda = lambda
-    )
-
-  }
-
-  init_run_opt = single_run(
-    M = M,
-    model_data = model_data,
-    lambda = lambda_opt$best_lambda,
-    w = init_run$w0,
-    init_list = init_run,
-    iters = init_control$init_final_run,
-    burn_in = floor(init_control$init_final_run/2),
-    thin = 1,
-    seed = seed,
-    verbose = FALSE
-  )
-
-  init_list = list(
-    w = init_run$w0,
-    beta = init_run_opt$sample_list$beta |> compute_post_stat(),
-    pw = init_run_opt$sample_list$pw %>% colMeans()
+    n_init = n_init,
+    init_mcmc_iters = init_mcmc_iters,
+    lambda = lambda,
+    seed = NULL,
+    verbose = verbose
   )
 
   #### MCMC ####
@@ -208,16 +164,19 @@ pipeline = function(model_data,
       M = M,
       w = NULL,
       model_data = model_data,
-      lambda = lambda_opt$best_lambda,
-      init_list = init_list,
+      lambda = lambda,
+      init_list = init_run,
       iters = iters,
       burn_in = burn_in,
       thin = thin,
-      seed = NULL,
-      verbose = verbose
+      verbose = verbose,
+      seed = NULL
     )
 
   })
+
+  #### check label swtiching ####
+  runs = relabel(runs)
 
   #### convergence check ####
   logpost_conv_check = check_conv_logpost(runs = runs)
@@ -228,7 +187,7 @@ pipeline = function(model_data,
     beta = beta_conv_check
   )
 
-  #### post-processing ####
+  #### combine chains ####
   sample_list = combine_chains(runs = runs, model_data)
 
   for(i in 1:nrow(sample_list$logpost)) {
@@ -240,14 +199,13 @@ pipeline = function(model_data,
   #### clustering quality metrics ####
   metrics = compute_metrics(
     sample_list = sample_list,
-    lambda = lambda_opt$best_lambda,
+    lambda = lambda,
     model_data = model_data
   )
 
   #### return ####
   out = list(
     sample_list = sample_list,
-    lambda_opt = lambda_opt,
     conv_check = conv_check,
     metrics = metrics,
     w = sample_list$w |> comp_class()

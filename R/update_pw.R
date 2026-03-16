@@ -1,4 +1,4 @@
-update_pw = function(w, epsilon = 1, model_data) {
+update_pw = function(w, dirichlet_param = 1, model_data) {
 
   M = model_data$dims$M
 
@@ -6,7 +6,7 @@ update_pw = function(w, epsilon = 1, model_data) {
 
     w = factor(w, levels = 1:M, ordered = T)
     nw = w |> table()
-    pw = extraDistr::rdirichlet(1, alpha = as.numeric(nw + epsilon)) |> as.numeric()
+    pw = extraDistr::rdirichlet(1, alpha = as.numeric(nw + dirichlet_param)) |> as.numeric()
     pw[pw < 1e-300] = 1e-300
 
   }else{

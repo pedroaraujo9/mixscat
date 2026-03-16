@@ -25,7 +25,7 @@ create_sample_list = function(M,
   #### global clustering parameters ####
   sample_list$beta = gen_sample_array(
     iters = eff_iters,
-    dimension = c(M*(n_basis), G),
+    dimension = c(M*n_basis, G),
     sampler = function(x) rnorm(x, sd = 0.01),
     init = init_list$beta
   )
@@ -61,7 +61,7 @@ create_sample_list = function(M,
 
   sample_list$spline_probs = gen_sample_array(
     iters = eff_iters,
-    dimension = c(M * n_basis * n_time, G),
+    dimension = c(M * n_time, G),
     sampler = function(x) predict_prob_cpp(M = M, w = 1:M, B, sample_list$beta[1,,]),
     init = init_list$spline_probs
   )
@@ -69,12 +69,12 @@ create_sample_list = function(M,
   #### log posterior ####
   sample_list$logpost = gen_sample_array(
     iters = eff_iters,
-    dimension = c(3),
+    dimension = c(4),
     sampler = function(x) 0,
     init = NULL
   )
 
-  colnames(sample_list$logpost) = c("logpost", "logpenal", "loglike")
+  colnames(sample_list$logpost) = c("logpost", "logpenal", "loglike", "logpenal_active")
 
   sample_list$iters_vec = iters_vec
 

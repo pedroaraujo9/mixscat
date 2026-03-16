@@ -28,34 +28,6 @@ combine_chains = function(runs, model_data) {
 
   }
 
-  if(M > 1) {
-
-    ls = label.switching::label.switching(
-      method = "STEPHENS",
-      z = sample_list$w,
-      K = M,
-      p = sample_list$w_post_prob,
-    )
-
-    perm = ls$permutations$STEPHENS
-    n_basis = model_data$spline$n_basis
-
-
-    for(i in 1:nrow(perm)) {
-
-      if(any(perm[i, ] != (1:M))) {
-
-        sample_list$pw[i, ] = sample_list$pw[i, perm[i, ]]
-        sample_list$w[i, ] = perm[i, sample_list$w[i, ]]
-        sample_list$beta[i,,] = build_block_perm_mat(perm[i, ], n_basis) %*% sample_list$beta[i,,]
-        sample_list$w_post_prob[i,,] = sample_list$w_post_prob[i,,perm[i, ]]
-      }
-
-    }
-
-  }
-
-
   return(sample_list)
 
 }
