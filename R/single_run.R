@@ -7,6 +7,7 @@ single_run = function(M,
                       burn_in,
                       thin,
                       verbose,
+                      temperature_vec = rep(1, iters),
                       seed = NULL) {
 
   if(!is.null(seed)) set.seed(seed)
@@ -43,25 +44,13 @@ single_run = function(M,
 
   beta = sample_list$beta[1,,]
   pw = sample_list$pw[1,]
+  w_post_prob = sample_list$w_post_prob[1,,]
 
   i = 1
 
   for(iter in 1:iters) {
 
     if(verbose) cat(iter, "\r")
-
-    update = update_chain(
-      beta = beta,
-      w = w,
-      pw = pw,
-      model_data = model_data,
-      update_w_iter = update_w_iter
-    )
-
-    beta = update$beta
-    w = update$w
-    w_post_prob = update$w_post_prob
-    pw = update$pw
 
     if(iter %in% sample_list$iters_vec) {
 
@@ -81,6 +70,20 @@ single_run = function(M,
       i = i + 1
 
     }
+
+    update = update_chain(
+      beta = beta,
+      w = w,
+      pw = pw,
+      model_data = model_data,
+      update_w_iter = update_w_iter,
+      temperature = temperature_vec[iter]
+    )
+
+    beta = update$beta
+    w = update$w
+    w_post_prob = update$w_post_prob
+    pw = update$pw
 
   }
 

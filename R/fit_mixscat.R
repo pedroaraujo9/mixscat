@@ -51,40 +51,16 @@ fit_mixscat = function(M,
                        thin,
                        burn_in,
                        chains,
+                       lambda,
+                       intercept_penalty,
+                       dirichlet_param,
+                       n_init,
+                       init_mcmc_iters,
+                       n_cores,
                        seed,
-                       lambda = NULL,
-                       intercept_penalty = 1,
-                       dirichlet_param = 1,
-                       n_cores = 1,
-                       verbose = TRUE,
-                       init_control = list(
-                         lambda_init = 1,
-                         n_init = 5,
-                         lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
-                         init_iters = 10,
-                         init_burn_in = 5,
-                         init_thin = 2,
-                         init_final_run = 100,
-                         verbose = FALSE
-                       )) {
+                       verbose) {
 
   init_time = Sys.time()
-
-  args = list(
-    z = z,
-    id = id,
-    time = time,
-    n_basis = n_basis,
-    intercept_penalty = intercept_penalty,
-    dirichlet_param = dirichlet_param,
-    M = M,
-    chains = chains,
-    iters = iters,
-    burn_in = burn_in,
-    thin = thin,
-    init_control = init_control,
-    seed = seed
-  )
 
   model_data = create_model_data(
     z = z,
@@ -104,7 +80,8 @@ fit_mixscat = function(M,
   if(verbose) cat("Starting runs with", n_cores, "cores.\n")
 
   runs = future.apply::future_lapply(
-    M, function(m){
+    M,
+    function(m){
 
       if(verbose) cat("Running for M =", m, "\n")
 
@@ -115,9 +92,12 @@ fit_mixscat = function(M,
         iters = iters,
         burn_in = burn_in,
         thin = thin,
-        init_control = init_control,
+        lambda = 5,
+        dirichlet_param = dirichlet_param,
         seed = seed,
-        verbose = verbose
+        n_init = n_init,
+        init_mcmc_iters = init_mcmc_iters,
+        verbose = TRUE
       )
 
     },
@@ -128,7 +108,6 @@ fit_mixscat = function(M,
 
   names(runs) = paste0("M=", M)
   cluster_metrics = lapply(runs, function(run) run$metrics) |> purrr::list_rbind()
-  best_lambda = lapply(runs, function(run) run$lambda_opt$best_lambda)
   clusters = lapply(runs, function(run) run$w) |> (\(x) do.call(cbind, x))()
   colnames(clusters) = paste0("M=", M)
 
@@ -137,9 +116,7 @@ fit_mixscat = function(M,
 
   out = list(
     model_data = model_data,
-    args = args,
     cluster_metrics = cluster_metrics,
-    best_lambda = best_lambda,
     clusters = clusters,
     fit = runs,
     run_time = run_time

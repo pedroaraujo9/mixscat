@@ -1,3 +1,17 @@
+log_prior_w = function(w, M, alpha) {
+
+  n <- length(w)
+
+  # counts per category
+  counts <- tabulate(w, nbins = M)
+
+  # log Dirichlet–multinomial
+  logp <- lgamma(M * alpha) - lgamma(n + M * alpha) +
+    sum(lgamma(counts + alpha) - lgamma(alpha))
+
+  return(logp)
+}
+
 compute_logpost = function(beta, w, pw, model_data, sd_beta) {
 
   M = length(pw)
@@ -40,11 +54,14 @@ compute_logpost = function(beta, w, pw, model_data, sd_beta) {
   }
 
   log_w = sum(log(pw[w]))
+  log_w_int = log_prior_w(w, M, model_data$spline$dirichlet_param[1])
 
   logpost = log_like + log_beta_prior +  log_w + log_pw_prior
+  #logpost2 = log_like + log_beta_active + log_w_int
 
   out = c(
     "logpost" = logpost,
+    #"logpost2" = logpost2,
     "logpenal" = log_like + log_beta_prior,
     "loglike" = log_like,
     "logpenal_active" = log_like + log_beta_active

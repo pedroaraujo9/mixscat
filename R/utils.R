@@ -688,6 +688,9 @@ compute_beta_sd_matrix = function(model_data, lambda, M) {
   return(beta_init_sd)
 }
 
-
+get_w_ward = function(M, z_dist) {
+  w_ward_init = hclust(as.dist(z_dist), method = "ward.D") |> cutree(k = M)
+  w_ward_init
+}
 
 
