@@ -93,7 +93,7 @@ data %>%
 
 
 #### data model ####
-M = 20
+M = 11
 n_basis = 10
 iters = 100
 burn_in = 50
@@ -101,7 +101,7 @@ thin = 2
 chains = 2
 seed = 2
 
-lambda = 1
+lambda = 5
 intercept_penalty = 1
 dirichlet_param = 1
 
@@ -116,17 +116,6 @@ model_data = create_model_data(
   dirichlet_param = dirichlet_param
 )
 
-init_control = list(
-  lambda_init = 1,
-  n_init = 10,
-  lambda_grid = seq(from = 0.01, to = 5, length.out = 30),
-  init_iters = 50,
-  init_burn_in = 15,
-  init_thin = 2,
-  verbose = TRUE
-)
-
-lambda = 1
 
 model_path = system.file(
   "stan", "stan_full_logpost.rds", package = "mixscat"
@@ -149,8 +138,8 @@ w_init_opt = find_post_map(
 beta_init_ward = w_init_opt$par$beta
 pw_init_ward = w_init_opt$par$pw
 
-iters = 100
-ward_init_runs = lapply(1:10, function(i){
+iters = 200
+ward_init_runs = lapply(1:5, function(i){
 
   cat("Init run:", i, "\r")
 
@@ -193,6 +182,14 @@ ward_init_runs = lapply(1:10, function(i){
 
 })
 
+ward_init_runs %>% purrr::map_dbl(~.x$logpost)
+
+mclust::adjustedRandIndex(
+  ward_init_runs[[1]]$w,
+  ward_init_runs[[2]]$w
+)
+
+
 idx = ward_init_runs %>% purrr::map_dbl(~.x$logpost) %>% which.max()
 w_ward_random_init = ward_init_runs[[idx]]$w
 beta_ward_random_init = ward_init_runs[[idx]]$beta
@@ -221,12 +218,12 @@ table(w_ward_random_init, w_ward_init)
 
 
 init_list = find_init_w(
-  M = 11,
+  M = 20,
   model_data = model_data,
   n_init = 10,
   init_mcmc_iters = 100,
-  lambda = 1,
-  seed = NULL,
+  lambda = 5,
+  seed = 1,
   verbose = TRUE
 )
 
