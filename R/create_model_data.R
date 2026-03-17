@@ -33,7 +33,7 @@ create_model_data = function(z,
   n_time = length(time_unique)
 
   Z_matrix = matrix(z, nrow = n_id, ncol = n_time, byrow = TRUE)
-  z_dist = TraMineR::seqdef(Z_matrix) |> TraMineR::seqdist(method = "DHD")
+  z_dist = TraMineR::seqdef(Z_matrix) |> TraMineR::seqdist(method = "HAM")
   colnames(z_dist) = rownames(z_dist) =  id_unique
 
   time_seq = time - min(time) + 1
@@ -53,7 +53,7 @@ create_model_data = function(z,
 
   B = basis_funcions$model_matrix
   S = basis_funcions$nD
-  S[1, 1] = intercept_penalty
+  S[1, 1] = NA
 
   out = list()
 

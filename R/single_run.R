@@ -17,7 +17,7 @@ single_run = function(M,
   model_data$dims$M = M
   S = model_data$spline$S
   S = lambda * S
-  S[1, 1] = model_data$spline$intercept_penalty * S[1, 1]
+  S[1, 1] = model_data$spline$intercept_penalty
   model_data$spline$S_expand = kronecker(diag(M), S)
   sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
 
