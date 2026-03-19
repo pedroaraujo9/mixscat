@@ -7,16 +7,15 @@
 pipeline(
   model_data,
   M,
-  chains = 2,
-  iters = 1000,
-  burn_in = 500,
-  thin = 5,
-  lambda = NULL,
-  init_control = list(lambda_init = 1, n_init = 5, lambda_grid = seq(from = 0.01, to = 5,
-    length.out = 30), init_iters = 10, init_burn_in = 5, init_thin = 2, init_final_run =
-    100, verbose = FALSE),
-  verbose = TRUE,
-  seed
+  chains,
+  init_list,
+  iters,
+  burn_in,
+  thin,
+  lambda,
+  n_cores,
+  seed,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -42,6 +41,11 @@ iteration is retained. Default is 5.}
 (default), lambda will be automatically calibrated using cross-validation
 across the \code{lambda_grid} values in \code{init_control}.}
 
+\item{seed}{Integer seed for random number generation to ensure reproducibility.}
+
+\item{verbose}{Logical indicating whether to print progress messages during
+execution. Default is TRUE.}
+
 \item{init_control}{List of settings controlling initialization and lambda
 calibration. Elements:
 \describe{
@@ -62,11 +66,6 @@ initialization run used to obtain starting values. Default is 100.}
 \item{\code{verbose}}{Logical whether to print progress during
 initialization. Default is FALSE.}
 }}
-
-\item{verbose}{Logical indicating whether to print progress messages during
-execution. Default is TRUE.}
-
-\item{seed}{Integer seed for random number generation to ensure reproducibility.}
 }
 \value{
 A list with the following components:

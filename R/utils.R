@@ -669,28 +669,41 @@ compute_probs = function(w, M, B, beta) {
 }
 
 
-compute_beta_sd_matrix = function(model_data, lambda, M) {
 
-  S = model_data$spline$S
-  S = lambda * S
-  G = model_data$dims$G
-  S[1, 1] = model_data$spline$intercept_penalty
-
-  beta_init_sd = sqrt(1/rep(diag(S), times = M))
-
-  beta_init_sd = matrix(
-    beta_init_sd,
-    nrow = length(beta_init_sd),
-    ncol = G - 1,
-    byrow = F
-  )
-
-  return(beta_init_sd)
-}
 
 get_w_ward = function(M, z_dist) {
   w_ward_init = hclust(as.dist(z_dist), method = "ward.D") |> cutree(k = M)
   w_ward_init
 }
 
+create_beta_sd_matrix = function(model_data, lambda, intercept_penalty, M) {
 
+  G = model_data$dims$G
+  S = model_data$spline$S
+
+  S = lambda * S
+  S[1, 1] = intercept_penalty
+  beta_sd = sqrt(1/rep(diag(S), times = M))
+
+  beta_sd = matrix(
+    beta_sd,
+    nrow = length(beta_sd),
+    ncol = G - 1,
+    byrow = F
+  )
+
+  return( beta_sd)
+}
+
+create_beta_precision_matrix = function(model_data, lambda, intercept_penalty, M) {
+
+  S = model_data$spline$S
+  S = lambda * S
+  S[1, 1] = intercept_penalty
+
+  diag_precision = rep(diag(S), times = M)
+  beta_precision_matrix = diag(diag_precision)
+
+  return(beta_precision_matrix)
+
+}

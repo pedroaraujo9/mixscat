@@ -128,53 +128,56 @@
 pipeline = function(model_data,
                     M,
                     chains,
+                    init_list,
                     iters,
                     burn_in,
                     thin,
                     lambda,
-                    dirichlet_param,
+                    n_cores,
                     seed,
-                    n_init,
-                    init_mcmc_iters,
                     verbose = TRUE) {
 
   if(!is.null(seed)) set.seed(seed)
 
-  #### initialization ####
-  if(verbose) cat("Finding init values\n")
-
-  init_run = find_init_w(
-    M = M,
-    model_data = model_data,
-    n_init = n_init,
-    init_mcmc_iters = init_mcmc_iters,
-    lambda = lambda,
-    seed = NULL,
-    verbose = verbose
-  )
-
   #### MCMC ####
-  cat("Running chains \n")
+  if(verbose) cat("Running chains \n")
 
-  runs = lapply(1:chains, function(i){
+  # set number of cores for parallel chains
+  if(n_cores > 1) {
+    future::plan(future::multisession,  workers = n_cores)
+  }else{
+    future::plan(future::sequential, split = TRUE)
+  }
 
-    if(verbose) cat("Chain:", i, "\n")
+  if(verbose) cat("Number of workers:", future::nbrOfWorkers(), "\n")
 
-    single_run(
-      M = M,
-      w = NULL,
-      model_data = model_data,
-      lambda = lambda,
-      init_list = init_run,
-      iters = iters,
-      burn_in = burn_in,
-      thin = thin,
-      verbose = verbose,
-      seed = NULL
+  # run chains
+  runs = future.apply::future_lapply(1:chains, function(chain){
+
+        if(verbose) cat("Running for chain", chain, "\n")
+
+        mixscat::single_run(
+          M = M,
+          w = NULL,
+          model_data = model_data,
+          lambda = lambda,
+          init_list = init_list,
+          iters = iters,
+          burn_in = burn_in,
+          thin = thin,
+          verbose = verbose,
+          seed = NULL
+      )
+
+      },
+
+      future.seed = TRUE,
+      future.packages = c("Rcpp", "dplyr", "tidyr", "purrr", "posterior"),
+      future.stdout = TRUE
+
     )
 
-  })
-
+  init_time = Sys.time()
   #### check label swtiching ####
   runs = relabel(runs)
 
@@ -203,12 +206,17 @@ pipeline = function(model_data,
     model_data = model_data
   )
 
+  end_time = Sys.time()
+  runtime = end_time - init_time
+
   #### return ####
   out = list(
     sample_list = sample_list,
     conv_check = conv_check,
     metrics = metrics,
-    w = sample_list$w |> comp_class()
+    w = sample_list$w |> comp_class(),
+    runs = runs,
+    runtime = runtime
   )
 
   return(out)

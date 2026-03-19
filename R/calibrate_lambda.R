@@ -95,14 +95,22 @@ find_post_map = function(M,
                          stan_model,
                          init_list,
                          lambda,
+                         intercept_penalty,
+                         dirichlet_param,
                          model_data) {
 
+
   n_basis = model_data$spline$n_basis
-  intercept_sd = model_data$spline$intercept_penalty
   z = model_data$data$z
   G = model_data$dims$G
 
-  sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
+  sd_beta = create_beta_sd_matrix(
+    model_data = model_data,
+    lambda = lambda,
+    intercept_penalty = intercept_penalty,
+    M = M
+  )
+
   sd_beta = sd_beta[, 1]
 
   X = kronecker(create_dummy(w, M), model_data$spline$B)
@@ -115,7 +123,7 @@ find_post_map = function(M,
     M = M,
     p = ncol(X),
     G = G,
-    dirichlet_param = model_data$spline$dirichlet_param,
+    dirichlet_param = dirichlet_param,
     z = z,
     X = X,
     sd_beta = sd_beta

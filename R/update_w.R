@@ -1,4 +1,4 @@
-update_w = function(beta, z, pw, model_data, temperature = 1) {
+update_w = function(beta, z, pw, model_data) {
 
   G = model_data$dims$G
   M = model_data$dims$M
@@ -31,7 +31,7 @@ update_w = function(beta, z, pw, model_data, temperature = 1) {
     mclust::logsumexp(ll), nrow = n_id, ncol = M, byrow = F
   )
 
-  ll = ll / temperature
+  ll = ll # / temperature
 
   w_post_prob = exp(ll)
 

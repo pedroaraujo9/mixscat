@@ -136,4 +136,3 @@ arma::vec fast_aggregate_sum(arma::vec& log_pz, arma::ivec& id) {
   return sums;
 }
 
-

@@ -9,37 +9,31 @@ compute_asw = function(w, z_dist) {
 
 #### data ####
 data = readRDS("~/Documents/GitHub/clustering-mortality-two-step/data/input-data-cluster.rds")
+sex_str = "Female"
+G = 3
 
-x_male = data %>%
-  filter(sex == "Male") %>%
+x = data %>%
+  filter(sex == sex_str) %>%
   select(-country, -year, -sex, -(Z2:Z6)) %>%
   as.matrix()
 
 id = data %>% select(country, year) %>% distinct() %>% .$country
 time = data %>% select(country, year) %>% distinct() %>% .$year
 
-z_male = data %>%
-  filter(sex == "Male") %>%
+z = data %>%
+  filter(sex == sex_str) %>%
   as.data.frame() %>%
-  .[, paste0("Z", 5)]
+  .[, paste0("Z", G)]
 
-male_levels = z_male %>%
+levels = z %>%
   unique() %>%
   sort() %>%
   as.character()
 
-z = factor(z_male, levels = male_levels)
+z = factor(z, levels = levels)
 n_id = length(unique(id))
 n_time = length(unique(time))
 id_unique = id |> unique() |> sort()
-
-z_seq = z |>
-  matrix(nrow = n_id, ncol = n_time, byrow = T) |>
-  TraMineR::seqdef()
-
-rownames(z_seq) = id_unique
-z_dist = TraMineR::seqdist(z_seq, method = "HAM")
-
 
 data.frame(
   id = id,
@@ -50,41 +44,6 @@ data.frame(
   geom_tile(color="black") +
   viridis::scale_fill_viridis(discrete = T)
 
-#### ward ####
-get_w_ward = function(M, z_dist) {
-  w_ward_init = hclust(as.dist(z_dist), method = "ward.D") |> cutree(k = M)
-  w_ward_init
-}
-
-ward_asw = lapply(2:20, function(m){
-  w_ward_init = get_w_ward(m, z_dist)
-  compute_asw(w_ward_init, z_dist)
-}) %>% do.call(c, .)
-
-#### MED seq ####
-get_w_med = function(M, z_seq) {
-
-  w_med_init = MEDseq::MEDseq_fit(z_seq, G = M, modtype = "UU") |>
-    MEDseq::get_MEDseq_results(what = "MAP")
-
-  return(w_med_init)
-}
-
-med_asw = lapply(2:20, function(m){
-  w_med_init = get_w_med(m, z_seq)
-  compute_asw(w_med_init, z_dist)
-}) %>% do.call(c, .)
-
-data.frame(
-  med_asw = med_asw,
-  ward_asw = ward_asw,
-  M = 2:20
-) %>%
-  gather(method, asw, -M) %>%
-  ggplot(aes(x=M, y=asw, color=method)) +
-  geom_point() +
-  geom_line() +
-  scale_x_continuous(breaks = 2:20)
 
 data %>%
   filter(sex == "Male", country %in% c("Argentina","Bulgaria","Malaysia","Serbia","Uruguay")) %>%
@@ -93,17 +52,132 @@ data %>%
 
 
 #### data model ####
-M = 11
+M = 20
 n_basis = 10
 iters = 100
 burn_in = 50
 thin = 2
 chains = 2
-seed = 2
+seed = 1
 
-lambda = 5
+init_iters = 200
+init_thin = 100
+init_burn_in = 10
+n_cores = 1
+verbose = TRUE
+
+lambda = 1
 intercept_penalty = 1
-dirichlet_param = 1
+dirichlet_param = 0.001
+submodels = 1:M
+
+model_data = create_model_data(
+  z = z,
+  id = id,
+  time = time,
+  n_basis = n_basis,
+  intercept_penalty = intercept_penalty,
+  dirichlet_param = dirichlet_param
+)
+
+subs = 1:15
+
+devtools::load_all()
+init_run = find_init_overfitted(
+  M = 15,
+  submodels = subs,
+  model_data = model_data,
+  lambda = 1,
+  init_iters = 100,
+  init_burn_in = 50,
+  init_thin = 2,
+  intercept_penalty = intercept_penalty,
+  dirichlet_param = dirichlet_param,
+  n_cores = 1,
+  seed = 1
+)
+init_run$logpost_map[-15] %>% plot(x = subs[-15], y=.)
+
+init_run$logpost_map %>% which.max()
+init_run$init_runs[[20]]$init_list
+init_run$logpost_map %>% which.max()
+init_run$init_runs[[1]]
+
+
+wf = init_run$init_runs[[1]]$init_list$w
+ari(w_init, wf)
+
+logp = lapply(1:length(init_run), function(i){
+  init_run[[i]]$logpost_map["logpost"]
+}) %>%
+  do.call(c, .)
+
+init_list = init_run$init_runs[[1]]$init_list
+
+devtools::load_all()
+runs = pipeline(
+  model_data = model_data,
+  M = M,
+  chains = 3,
+  iters = 6000,
+  burn_in = 3000,
+  thin = 15,
+  lambda = lambda,
+  init_list = init_list,
+  n_cores = 3,
+  seed = 10,
+  verbose = 1
+)
+
+w1 = runs$runs[[1]]$sample_list$w %>% comp_class()
+w2 = runs$runs[[2]]$sample_list$w %>% comp_class()
+w3 = runs$runs[[3]]$sample_list$w %>% comp_class()
+
+w1 = runs$runs[[1]]$sample_list$w[200, ]
+w2 = runs$runs[[2]]$sample_list$w[200, ]
+w3 = runs$runs[[3]]$sample_list$w[200, ]
+
+ari(w1, w2)
+ari(w1, w3)
+ari(w2, w3)
+
+w1 %>% unique()
+w2 %>% unique() %>% sort()
+w3 %>% unique() %>% sort()
+
+
+w1 == w2
+
+runs[[1]]$sample_list$w
+
+w1 == w2
+
+runs$conv_check$beta
+
+runs$runs[[1]]$sample_list$w[, "Uzbekistan"] %>% table() %>% prop.table()
+runs$runs[[2]]$sample_list$w[, "Uzbekistan"] %>% table() %>% prop.table()
+runs$runs[[3]]$sample_list$w[, "Uzbekistan"] %>% table() %>% prop.table()
+
+w1 %>% sort()
+w2 %>% sort()
+runs[[1]]$sample_list$w[, "Cuba"]
+runs[[2]]$sample_list$w[, "Cuba"]
+
+
+devtools::load_all()
+fit = single_run(
+  M = M,
+  w = NULL,
+  model_data = model_data,
+  lambda = 10,
+  init_list = NULL,
+  iters = 100,
+  burn_in = 0,
+  thin = 1,
+  verbose = TRUE
+)
+
+fit$sample_list$beta[,1,1] %>% plot()
 
 extraDistr::rdirichlet(1000, rep(0.05, M)) %>% min()
 
@@ -197,20 +271,20 @@ pw_ward_random_init = ward_init_runs[[idx]]$pw
 
 sd_beta = compute_beta_sd_matrix(model_data, lambda, M = M)
 
-compute_logpost(
+create_logpost(
   beta = cbind(beta_ward_random_init, 0),
   pw = as.numeric(pw_ward_random_init),
   w = w_ward_random_init,
   model_data = model_data,
-  sd_beta = sd_beta
+  beta_sd = sd_beta
 )
 
-compute_logpost(
+create_logpost(
   beta = cbind(beta_init_ward, 0),
   pw = as.numeric(pw_init_ward),
   w = w_ward_init,
   model_data = model_data,
-  sd_beta = sd_beta
+  beta_sd = sd_beta
 )
 
 ari(w_ward_random_init, w_ward_init)

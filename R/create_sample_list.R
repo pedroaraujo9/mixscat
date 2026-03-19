@@ -74,7 +74,7 @@ create_sample_list = function(M,
     init = NULL
   )
 
-  colnames(sample_list$logpost) = c("logpost", "logpenal", "loglike", "logpenal_active")
+  colnames(sample_list$logpost) = c("logpost", "loglike", "logpenal", "beta_logprior")
 
   sample_list$iters_vec = iters_vec
 

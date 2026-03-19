@@ -1,3 +1,10 @@
+#' Create model data
+#'
+#' @description
+#' ...
+#'
+#'
+#' @export
 create_model_data = function(z,
                              id,
                              time,

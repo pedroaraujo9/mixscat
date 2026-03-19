@@ -1,3 +1,19 @@
+# sample_beta_r = function(X,
+#                          omega,
+#                          inv_cov,
+#                          z,
+#                          C) {
+#
+#   X_omega = X * matrix(omega, nrow = nrow(X), ncol = ncol(X), byrow = F)
+#   Xt_omega_X = crossprod(X_omega, X)
+#   V = solve(Xt_omega_X + inv_cov)
+#
+#   m = V %*% (crossprod(X, cbind(z - 0.5 + omega * C)))
+#   beta = m + t(chol(V)) %*% rnorm(ncol(X))
+#   return(beta)
+#
+# }
+
 augment_beta = function(g,
                         Z,
                         X,
@@ -8,28 +24,29 @@ augment_beta = function(g,
   C = max_other + log(rowSums(exp(linear_pred[, -g, drop = FALSE] - max_other)))
   n = nrow(Z)
 
-  omega = BayesLogit::rpg(n, h = 1, z = linear_pred[, g, drop = FALSE] - C)
+  omega = BayesLogit::rpg(n, h = 1, z = linear_pred[, g] - C)
 
   beta = sample_beta(
     X = X,
     omega = omega,
     inv_cov = precision_matrix,
-    z = Z[, g, drop = FALSE],
+    z = Z[, g],
     C = C
   )
+
+
 
   return(as.numeric(beta))
 }
 
 update_beta = function(beta,
                        w,
+                       beta_precision_matrix,
                        model_data) {
 
   G = model_data$dims$G
   M = model_data$dims$M
-
   B = model_data$spline$B
-  S = model_data$spline$S_expand
 
   beta = rbind(beta)
 
@@ -46,7 +63,7 @@ update_beta = function(beta,
       Z = Z,
       X = X,
       linear_pred = linear_pred,
-      precision_matrix = S
+      precision_matrix = beta_precision_matrix
     )
   }
 

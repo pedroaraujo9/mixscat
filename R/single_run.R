@@ -1,13 +1,22 @@
+#' Single run
+#'
+#' @description
+#' Run MCMC for one single chain
+#'
+#'
+#' @export
 single_run = function(M,
                       w = NULL,
                       model_data,
                       lambda,
+                      intercept_penalty,
+                      dirichlet_param,
                       init_list,
                       iters,
                       burn_in,
                       thin,
                       verbose,
-                      temperature_vec = rep(1, iters),
+                      add_logpost = TRUE,
                       seed = NULL) {
 
   if(!is.null(seed)) set.seed(seed)
@@ -15,12 +24,19 @@ single_run = function(M,
   init_time = Sys.time()
 
   model_data$dims$M = M
-  S = model_data$spline$S
-  S = lambda * S
-  S[1, 1] = model_data$spline$intercept_penalty
-  model_data$spline$S_expand = kronecker(diag(M), S)
-  sd_beta = compute_beta_sd_matrix(model_data, lambda, M)
 
+  # define prior precision for beta
+  beta_precision_matrix = create_beta_precision_matrix(
+   model_data = model_data,
+   lambda = lambda, intercept_penalty = intercept_penalty, M = M
+  )
+
+  beta_sd = create_beta_sd_matrix(
+    model_data = model_data,
+    lambda = lambda, intercept_penalty = intercept_penalty, M = M
+  )
+
+  # create list to store posterior samples
   sample_list = create_sample_list(
     M = M,
     iters = iters,
@@ -31,6 +47,7 @@ single_run = function(M,
     seed = seed
   )
 
+  # itinialise parameters
   if(is.null(w)) {
 
     w = sample_list$w[1, ]
@@ -45,9 +62,9 @@ single_run = function(M,
   beta = sample_list$beta[1,,]
   pw = sample_list$pw[1,]
   w_post_prob = sample_list$w_post_prob[1,,]
-
   i = 1
 
+  # run mcmc
   for(iter in 1:iters) {
 
     if(verbose) cat(iter, "\r")
@@ -59,13 +76,16 @@ single_run = function(M,
       sample_list$pw[i, ] = pw
       sample_list$w_post_prob[i,,] = w_post_prob
 
-      sample_list$logpost[i, ] = compute_logpost(
-        beta = beta,
-        w = w,
-        pw = pw,
-        model_data = model_data,
-        sd_beta = sd_beta
-      )
+      if(add_logpost == TRUE) {
+        sample_list$logpost[i, ] = compute_logpost(
+          beta = beta,
+          w = w,
+          pw = pw,
+          dirichlet_param = dirichlet_param,
+          model_data = model_data,
+          beta_sd = beta_sd
+        )
+      }
 
       i = i + 1
 
@@ -76,8 +96,9 @@ single_run = function(M,
       w = w,
       pw = pw,
       model_data = model_data,
+      dirichlet_param = dirichlet_param,
       update_w_iter = update_w_iter,
-      temperature = temperature_vec[iter]
+      beta_precision_matrix = beta_precision_matrix
     )
 
     beta = update$beta
@@ -87,6 +108,7 @@ single_run = function(M,
 
   }
 
+  # save results
   out = list(
     sample_list = sample_list,
     init = init_list

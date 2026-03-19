@@ -92,6 +92,165 @@ find_init_w = function(M,
 
 }
 
+find_best_hierarchical_w = function(M, model_data, stan_model, lambda, intercept_penalty, dirichlet_param) {
 
 
+  d = as.dist(model_data$data$z_dist)
+  link = "ward.D"
+
+  w_init = hclust(d, method = link) |> cutree(k = M)
+
+  post_map = find_post_map(
+    M = M,
+    w = w_init,
+    stan_model = stan_model,
+    init_list = NULL,
+    lambda = lambda,
+    dirichlet_param =  dirichlet_param,
+    intercept_penalty = intercept_penalty,
+    model_data = model_data
+  )
+
+  init_list = list(
+    w = w_init,
+    beta = cbind(post_map$par$beta, 0),
+    pw = post_map$par$pw
+  )
+
+  out = list(
+    init_list = init_list,
+    logpost = post_map$par$log_like
+  )
+
+  return(out)
+
+}
+
+find_init_overfitted = function(M,
+                                submodels,
+                                model_data,
+                                lambda,
+                                intercept_penalty,
+                                dirichlet_param,
+                                init_iters,
+                                init_thin,
+                                init_burn_in,
+                                n_cores,
+                                seed,
+                                verbose = TRUE) {
+
+  if(!is.null(seed)) set.seed(seed)
+
+  init_time = Sys.time()
+
+  # load stan model to find posterior mode for fixed w
+  model_path = system.file(
+    "stan", "stan_full_logpost.rds", package = "mixscat"
+  )
+
+  stan_model = readRDS(model_path)
+
+  # set number of cores for parallel chains
+  if(n_cores > 1) {
+    future::plan(future::multisession, workers = n_cores)
+  }else{
+    future::plan(future::sequential, split = TRUE)
+  }
+
+  if(verbose) cat("Number of workers:", future::nbrOfWorkers(), "\n")
+
+  # run inits
+  init_runs = future.apply::future_lapply(submodels, function(m){
+
+    if(verbose) cat("Running init for M =", m, "\n")
+
+    # start with ward initialization
+    w_init = find_best_hierarchical_w(
+      M = m,
+      model_data = model_data,
+      intercept_penalty = intercept_penalty,
+      dirichlet_param = 1,
+      stan_model = stan_model,
+      lambda = lambda
+    )
+
+    init_list = w_init$init_list
+
+    # update it with a short chain
+    init_run = single_run(
+      M = m,
+      w = NULL,
+      model_data = model_data,
+      lambda = lambda,
+      intercept_penalty = intercept_penalty,
+      dirichlet_param = 1,
+      init_list = init_list,
+      iters = init_iters,
+      burn_in = init_burn_in,
+      thin = init_thin,
+      verbose = TRUE,
+      add_logpost = FALSE,
+      seed = NULL
+    )
+
+    # get posterior mode for the w(0) for overfitted model
+    w = init_run$sample_list$w |> comp_class()
+
+    post_map = find_post_map(
+      M = M,
+      w = w,
+      stan_model = stan_model,
+      init_list = NULL,
+      lambda = lambda,
+      intercept_penalty = intercept_penalty,
+      dirichlet_param = dirichlet_param,
+      model_data = model_data
+    )
+
+    init_list = list(
+      w = w,
+      beta = cbind(post_map$par$beta, 0),
+      pw = post_map$par$pw |> as.numeric()
+    )
+
+    logpost_map = compute_logpost(
+      beta = init_list$beta,
+      w = w,
+      pw = init_list$pw,
+      model_data = model_data,
+      dirichlet_param = dirichlet_param,
+      beta_sd = create_beta_sd_matrix(
+        model_data = model_data,
+        lambda = lambda,
+        intercept_penalty = intercept_penalty
+      )
+    )
+
+    out = list(
+      logpost_map = logpost_map,
+      init_list = init_list
+    )
+
+    return(out)
+
+  },
+
+  future.seed = TRUE,
+  future.packages = c("Rcpp", "dplyr", "tidyr", "purrr", "posterior"),
+  future.stdout = TRUE)
+
+  logpost_map = init_runs |> purrr::map_dbl(~.x$logpost_map["logpost"])
+  idx = which.max(logpost_map)
+  init_list = init_runs[[idx]]$init_list
+
+  out = list(
+    init_runs = init_runs,
+    logpost_map = logpost_map,
+    init_list = init_list,
+    runtime = Sys.time() - init_time
+  )
+
+  return(out)
+
+}
 
