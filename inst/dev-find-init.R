@@ -44,7 +44,6 @@ data.frame(
   geom_tile(color="black") +
   viridis::scale_fill_viridis(discrete = T)
 
-
 data %>%
   filter(sex == "Male", country %in% c("Argentina","Bulgaria","Malaysia","Serbia","Uruguay")) %>%
   ggplot(aes(x=year, y=country, fill=factor(Z5))) +

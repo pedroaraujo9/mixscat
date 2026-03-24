@@ -12,7 +12,6 @@ create_sample_list = function(M,
   n_basis = model_data$spline$n_basis
   B = model_data$spline$B
   n_time = model_data$dims$n_time
-
   id_unique = model_data$data$id_unique
 
   if(!is.null(seed)) set.seed(seed)
@@ -31,6 +30,13 @@ create_sample_list = function(M,
   )
 
   sample_list$beta[1,,G] = 0
+
+  sample_list$lambda = gen_sample_array(
+    iters = eff_iters,
+    dimension = c(M),
+    sampler = function(x) 1,
+    init = init_list$lambda
+  )
 
   sample_list$w = gen_sample_array(
     iters = eff_iters,

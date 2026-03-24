@@ -11,16 +11,19 @@ fit_mixscat(
   id,
   time,
   n_basis,
+  init_list,
   iters,
   thin,
   burn_in,
   chains,
+  n_cores,
   lambda,
+  pw,
+  w,
   intercept_penalty,
   dirichlet_param,
-  n_init,
-  init_mcmc_iters,
-  n_cores,
+  a_lambda,
+  b_lambda,
   seed,
   verbose
 )
@@ -44,13 +47,13 @@ fit_mixscat(
 
 \item{chains}{Integer specifying the number of MCMC chains to run.}
 
+\item{n_cores}{Integer specifying the number of CPU cores to use for parallel
+computation. Default is 1.}
+
 \item{lambda}{Numeric value for the regularization parameter. If NULL, will be
 calibrated automatically. Default is NULL.}
 
 \item{intercept_penalty}{Numeric penalty weight for the intercept term. Default is 1.}
-
-\item{n_cores}{Integer specifying the number of CPU cores to use for parallel
-computation. Default is 1.}
 
 \item{seed}{Integer seed for random number generation to ensure reproducibility.}
 

@@ -45,3 +45,7 @@ fast_aggregate_sum <- function(log_pz, id) {
     .Call(`_mixscat_fast_aggregate_sum`, log_pz, id)
 }
 
+update_lambda_loop_cpp <- function(beta, idx_list, s_matrix, a_lambda, b_lambda, n_basis, G) {
+    .Call(`_mixscat_update_lambda_loop_cpp`, beta, idx_list, s_matrix, a_lambda, b_lambda, n_basis, G)
+}
+

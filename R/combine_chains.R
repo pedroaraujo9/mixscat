@@ -1,12 +1,3 @@
-build_block_perm_mat = function(perm, n_basis) {
-
-  M = length(perm)
-  P_sigma = diag(M)[perm, ]
-  T_mat = kronecker(P_sigma, diag(n_basis))
-
-  return(T_mat)
-}
-
 combine_chains = function(runs, model_data) {
 
   sample_list = runs[[1]]$sample_list

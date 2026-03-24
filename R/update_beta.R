@@ -1,19 +1,3 @@
-# sample_beta_r = function(X,
-#                          omega,
-#                          inv_cov,
-#                          z,
-#                          C) {
-#
-#   X_omega = X * matrix(omega, nrow = nrow(X), ncol = ncol(X), byrow = F)
-#   Xt_omega_X = crossprod(X_omega, X)
-#   V = solve(Xt_omega_X + inv_cov)
-#
-#   m = V %*% (crossprod(X, cbind(z - 0.5 + omega * C)))
-#   beta = m + t(chol(V)) %*% rnorm(ncol(X))
-#   return(beta)
-#
-# }
-
 augment_beta = function(g,
                         Z,
                         X,
@@ -41,18 +25,33 @@ augment_beta = function(g,
 
 update_beta = function(beta,
                        w,
-                       beta_precision_matrix,
+                       lambda,
+                       fixed_lambda = FALSE,
+                       beta_precision_matrix = NULL,
                        model_data) {
 
   G = model_data$dims$G
   M = model_data$dims$M
   B = model_data$spline$B
+  intercept_penalty = model_data$spline$intercept_penalty
 
   beta = rbind(beta)
 
   W = create_dummy(w, M)
   X = kronecker(W, B)
+  X[, 1] = 1
   Z = model_data$data$Z
+
+  if(fixed_lambda == FALSE) {
+
+    beta_precision_matrix = create_beta_precision_matrix(
+      model_data = model_data,
+      lambda = lambda,
+      intercept_penalty = intercept_penalty,
+      M = M
+    )
+
+  }
 
   for(g in 1:(G-1)) {
 

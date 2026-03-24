@@ -42,7 +42,7 @@
 #'   \item{run_time}{Total computation time}
 #'
 #' @export
-fit_overfitted_mixscat = function(M,
+fit_overfitted_mixscat = function(M_max,
                                   z,
                                   id,
                                   time,
@@ -51,14 +51,15 @@ fit_overfitted_mixscat = function(M,
                                   thin,
                                   burn_in,
                                   chains,
+                                  n_cores,
+                                  init_run,
+                                  n_init,
+                                  init_iters,
                                   lambda,
-                                  submodels = 1:M,
                                   intercept_penalty,
                                   dirichlet_param,
-                                  init_iters,
-                                  init_burn_in,
-                                  init_thin,
-                                  n_cores,
+                                  a_lambda,
+                                  b_lambda,
                                   seed,
                                   verbose) {
   init_time = Sys.time()
@@ -74,8 +75,7 @@ fit_overfitted_mixscat = function(M,
     intercept_penalty = intercept_penalty,
     dirichlet_param = dirichlet_param,
     init_iters = init_iters,
-    init_burn_in = init_burn_in,
-    init_thin = init_thin,
+    n_init = n_init,
     n_cores = n_cores
   )
 
@@ -88,35 +88,48 @@ fit_overfitted_mixscat = function(M,
     dirichlet_param = dirichlet_param
   )
 
-  if(verbose) cat("Finding init values \n")
+  if(is.null(init_run)) {
 
-  init_run = find_init_overfitted(
-    M = M,
-    submodels = submodels,
-    model_data = model_data,
-    lambda = lambda,
-    dirichlet_param = dirichlet_param,
-    intercept_penalty = intercept_penalty,
-    init_iters = init_iters,
-    init_thin = init_thin,
-    init_burn_in = init_burn_in,
-    n_cores = n_cores,
-    seed = seed,
-    verbose = verbose
-  )
+    if(verbose) cat("Finding number of clusters \n")
+
+    init_run = find_number_clust(
+      M_max = M_max,
+      z = z,
+      id = id,
+      time = time,
+      n_basis = n_basis,
+      n_init = n_init,
+      iters = init_iters,
+      lambda = lambda,
+      dirichlet_param = dirichlet_param,
+      a_lambda = a_lambda,
+      b_lambda = b_lambda,
+      intercept_penalty = intercept_penalty,
+      model_data = model_data,
+      seed = NULL,
+      verbose = verbose
+    )
+
+  }
+
+  init_list = list(w = init_run$w_pear)
 
   fit = pipeline(
-    model_data = model_data,
-    M = ,
+    M = init_run$best_size,
+    pw = init_run$w_post_prob,
+    w = NULL,
     chains = chains,
-    init_list = init_run$init_list,
+    n_cores = n_cores,
+    model_data = model_data,
+    lambda = lambda,
+    intercept_penalty = intercept_penalty,
+    dirichlet_param = dirichlet_param,
+    init_list = init_list,
     iters = iters,
     burn_in = burn_in,
     thin = thin,
-    lambda = lambda,
-    n_cores = n_cores,
-    seed = seed,
-    verbose = verbose
+    verbose = verbose,
+    seed = NULL
   )
 
   run_time = Sys.time() - init_time

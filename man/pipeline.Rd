@@ -5,25 +5,31 @@
 \title{Pipeline for fitting mixture of spline-based categorical distributions}
 \usage{
 pipeline(
-  model_data,
   M,
+  model_data,
   chains,
-  init_list,
   iters,
   burn_in,
   thin,
-  lambda,
   n_cores,
-  seed,
-  verbose = TRUE
+  w = NULL,
+  pw = NULL,
+  lambda = NULL,
+  a_lambda = 1,
+  b_lambda = 1,
+  intercept_penalty = 1,
+  dirichlet_param = 0.01,
+  init_list,
+  verbose,
+  seed = NULL
 )
 }
 \arguments{
+\item{M}{Integer specifying the number of mixture components (groups/clusters).}
+
 \item{model_data}{List containing the processed model data structure created by
 \code{\link{create_model_data}}. Should include response data, covariates,
 spline basis matrices, and prior specifications.}
-
-\item{M}{Integer specifying the number of mixture components (groups/clusters).}
 
 \item{chains}{Integer specifying the number of MCMC chains to run. Default is 2.
 Multiple chains are recommended for convergence assessment.}
@@ -41,10 +47,10 @@ iteration is retained. Default is 5.}
 (default), lambda will be automatically calibrated using cross-validation
 across the \code{lambda_grid} values in \code{init_control}.}
 
-\item{seed}{Integer seed for random number generation to ensure reproducibility.}
-
 \item{verbose}{Logical indicating whether to print progress messages during
 execution. Default is TRUE.}
+
+\item{seed}{Integer seed for random number generation to ensure reproducibility.}
 
 \item{init_control}{List of settings controlling initialization and lambda
 calibration. Elements:

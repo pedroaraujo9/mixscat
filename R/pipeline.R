@@ -125,18 +125,25 @@
 #' }
 #'
 #' @export
-pipeline = function(model_data,
-                    M,
+pipeline = function(M,
+                    model_data,
                     chains,
-                    init_list,
                     iters,
                     burn_in,
                     thin,
-                    lambda,
                     n_cores,
-                    seed,
-                    verbose = TRUE) {
+                    w = NULL,
+                    pw = NULL,
+                    lambda = NULL,
+                    a_lambda = 1,
+                    b_lambda = 1,
+                    intercept_penalty = 1,
+                    dirichlet_param = 0.01,
+                    init_list,
+                    verbose,
+                    seed = NULL) {
 
+  init_time = Sys.time()
   if(!is.null(seed)) set.seed(seed)
 
   #### MCMC ####
@@ -158,9 +165,14 @@ pipeline = function(model_data,
 
         mixscat::single_run(
           M = M,
-          w = NULL,
+          w = w,
+          pw = pw,
           model_data = model_data,
           lambda = lambda,
+          a_lambda = a_lambda,
+          b_lambda = b_lambda,
+          intercept_penalty = intercept_penalty,
+          dirichlet_param = dirichlet_param,
           init_list = init_list,
           iters = iters,
           burn_in = burn_in,
@@ -177,45 +189,30 @@ pipeline = function(model_data,
 
     )
 
-  init_time = Sys.time()
   #### check label swtiching ####
-  runs = relabel(runs)
+  runs_relabel = relabel(runs, pivot = init_list$w)
 
   #### convergence check ####
-  logpost_conv_check = check_conv_logpost(runs = runs)
-  beta_conv_check = check_conv_param(runs = runs, param_name = "beta")
-
-  conv_check = list(
-    logpost = logpost_conv_check,
-    beta = beta_conv_check
-  )
+  beta_conv_check = check_conv_param(runs = runs_relabel, param_name = "beta")
 
   #### combine chains ####
-  sample_list = combine_chains(runs = runs, model_data)
+  sample_list = combine_chains(runs = runs_relabel, model_data)
 
-  for(i in 1:nrow(sample_list$logpost)) {
+  for(i in 1:nrow(sample_list$beta)) {
     sample_list$spline_probs[i,,] = predict_prob_cpp(
       M = M, w = 1:M, B = model_data$spline$B, beta = sample_list$beta[i,,]
     )
   }
-
-  #### clustering quality metrics ####
-  metrics = compute_metrics(
-    sample_list = sample_list,
-    lambda = lambda,
-    model_data = model_data
-  )
 
   end_time = Sys.time()
   runtime = end_time - init_time
 
   #### return ####
   out = list(
-    sample_list = sample_list,
-    conv_check = conv_check,
-    metrics = metrics,
+    runs = runs_relabel,
+    posterior_sample_list = sample_list,
+    beta_conv_check = beta_conv_check,
     w = sample_list$w |> comp_class(),
-    runs = runs,
     runtime = runtime
   )
 

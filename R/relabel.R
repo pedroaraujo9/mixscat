@@ -1,44 +1,46 @@
+build_block_perm_mat = function(perm, n_basis) {
+
+  M = length(perm)
+  P_sigma = diag(M)[perm, ]
+  T_mat = kronecker(P_sigma, diag(n_basis))
+
+  return(T_mat)
+}
+
 apply_relabel = function(sample_list, pivot) {
 
-  M = length(sample_list$pw[1, ])
+  iters = nrow(sample_list$w_post_prob)
+  M = dim(sample_list$w_post_prob)[3]
 
-  if(M > 1) {
+  ls = label.switching::label.switching(
+    method = "ECR",
+    z = sample_list$w,
+    zpivot = pivot,
+    K = M
+  )
 
-    ls = label.switching::label.switching(
-      method = "ECR",
-      z = sample_list$w,
-      K = M,
-      p = sample_list$w_post_prob, zpivot = pivot
-    )
 
-    perm = ls$permutations$ECR
-    n_basis = model_data$spline$n_basis
-
-    for(i in 1:nrow(perm)) {
-
-      if(any(perm[i, ] != (1:M))) {
-
-        sample_list$pw[i, ] = sample_list$pw[i, perm[i, ]]
-        sample_list$w[i, ] = perm[i, sample_list$w[i, ]]
-        sample_list$beta[i,,] = build_block_perm_mat(perm[i, ], n_basis) %*% sample_list$beta[i,,]
-        sample_list$w_post_prob[i,,] = sample_list$w_post_prob[i,,perm[i, ]]
-      }
-
-    }
+  for(i in 1:iters) {
+    perm = labels = ls$permutations$`ECR`[i, ]
+    sample_list$w[i, ] = order(perm)[sample_list$w[i, ]]
+    if(!is.null(sample_list$pw)) sample_list$pw[i, ] = sample_list$pw[i, perm]
+    sample_list$beta[i,,] = build_block_perm_mat(perm, n_basis) %*% sample_list$beta[i,,]
+    sample_list$w_post_prob[i,,] = sample_list$w_post_prob[i,, perm]
   }
+
+  sample_list = sample_list
 
   return(sample_list)
 
 }
 
+relabel = function(runs, pivot = NULL) {
 
-relabel = function(runs) {
+  if(is.null(pivot)) {
 
-  logpost = purrr::map_dbl(runs, ~{
-    mean(.x$sample_list$logpost[, "logpost"])
-  })
+    pivot = runs[[1]]$sample_list$w[nrow(runs[[1]]$sample_list$w), ]
 
-  pivot = runs[[which.max(logpost)]]$sample_list$w |> comp_class()
+  }
 
   for(chain in 1:length(runs)) {
     runs[[chain]]$sample_list = apply_relabel(

@@ -2,244 +2,135 @@ library(tidyverse)
 devtools::load_all()
 
 ari = mclust::adjustedRandIndex
-
 compute_asw = function(w, z_dist) {
   asw = cluster::silhouette(w, dist = z_dist)
   mean(asw[, 3])
 }
 
-get_w_ward_mode = function(M, model_data, stan_model, lambda) {
-
-  w_ward_init = hclust(as.dist(model_data$data$z_dist), method = "ward.D") |> cutree(k = M)
-
-  post_map = find_post_map(
-    M = M,
-    w = w_ward_init,
-    stan_model = stan_model,
-    init_list = NULL,
-    lambda = lambda,
-    model_data = model_data
-
-  )
-
-  list(
-    w = w_ward_init,
-    beta = cbind(post_map$par$beta, 0),
-    pw = post_map$par$pw %>% as.numeric()
-  )
-
-}
-
 #### data ####
 data = readRDS("~/Documents/GitHub/clustering-mortality-two-step/data/input-data-cluster.rds")
+sex_str = "Female"
+G = 3
 
-x_male = data %>%
-  filter(sex == "Male") %>%
+x = data %>%
+  filter(sex == sex_str) %>%
   select(-country, -year, -sex, -(Z2:Z6)) %>%
   as.matrix()
 
 id = data %>% select(country, year) %>% distinct() %>% .$country
 time = data %>% select(country, year) %>% distinct() %>% .$year
 
-z_male = data %>%
-  filter(sex == "Male") %>%
+z = data %>%
+  filter(sex == sex_str) %>%
   as.data.frame() %>%
-  .[, paste0("Z", 5)]
+  .[, paste0("Z", G)]
 
-male_levels = z_male %>%
+levels = z %>%
   unique() %>%
   sort() %>%
   as.character()
 
-z = factor(z_male, levels = male_levels)
+z = factor(z, levels = levels)
+n_id = length(unique(id))
+n_time = length(unique(time))
+id_unique = id |> unique() |> sort()
 
-M = 20
+data.frame(
+  id = id,
+  time = time,
+  z = z
+) %>%
+  ggplot(aes(x=time, y=id, fill=z)) +
+  geom_tile(color="black") +
+  viridis::scale_fill_viridis(discrete = T)
+
+
+M_max = 15
+iters = 4000
+burn_in = 2000
+thin = 10
+chains = 3
+n_cores = 1
+
+n_init = 200
+init_iters = 20
+
 n_basis = 10
-iters = 100
-burn_in = 50
-thin = 2
-chains = 2
-seed = 2
-
-lambda = 1
 intercept_penalty = 1
-dirichlet_param = 0.001
+dirichlet_param = 0.01
+a_lambda = 1
+b_lambda = 1
+seed = 1
 
-model_data = create_model_data(
+w = NULL
+lambda = 1
+
+devtools::load_all()
+clust_number = find_number_clust(
+  M_max = M_max,
   z = z,
   id = id,
   time = time,
   n_basis = n_basis,
+  n_init = n_init,
+  init_iters = init_iters,
+  lambda = lambda,
+  dirichlet_param = dirichlet_param,
+  a_lambda = a_lambda,
+  b_lambda = b_lambda,
   intercept_penalty = intercept_penalty,
-  dirichlet_param = dirichlet_param
+  seed = seed,
+  verbose = TRUE
 )
 
-model_path = system.file(
-  "stan", "stan_full_logpost.rds", package = "mixscat"
-)
+clust_number$clust_size_p
 
-stan_model = readRDS(model_path)
+M_best = 10
+pw = clust_number$post_modes[[as.character(M_best)]]$w_post_prob
+init_list = list(
+  w = clust_number$post_modes[[as.character(M_best)]]$w,
+  beta = clust_number$post_modes[[as.character(M_best)]]$beta_map
+)
 
 devtools::load_all()
+fit = fit_mixscat(
+  M = M_best,
+  z = z,
+  id = id,
+  time = time,
+  pw = pw,
+  n_basis = n_basis,
+  init_list = init_list,
+  iters = iters,
+  thin = thin,
+  burn_in = burn_in,
+  chains = chains,
+  n_cores = n_cores,
+  lambda = lambda,
+  w = NULL,
+  intercept_penalty = intercept_penalty,
+  dirichlet_param = dirichlet_param,
+  a_lambda = a_lambda,
+  b_lambda = b_lambda,
+  seed = seed,
+  verbose = TRUE
+)
 
+w1 = fit$fit$runs[[1]]$sample_list$w %>% comp_class()
+w2 = fit$fit$runs[[2]]$sample_list$w %>% comp_class()
+w3 = fit$fit$runs[[3]]$sample_list$w %>% comp_class()
 
-fits = readRDS("~/Documents/GitHub/clustering-mortality-two-step/models/mixscat-fit/mixscat-male-fit-wpp-G=5-lambda=1.rds")
-w_init = fits$clusters[, 11]
-
-fits = lapply(1:20, function(chain){
-
-  print(paste("Chain", chain, "\n"))
-
-  w_ward_init = get_w_ward_mode(
-    M = chain, model_data = model_data, stan_model = stan_model, lambda = lambda
-  )
-
-  init_run = single_run(
-    M = chain,
-    w = NULL,
-    model_data = model_data,
-    lambda = 1,
-    init_list = w_ward_init,
-    iters = 100,
-    burn_in = 0,
-    thin = 1,
-    verbose = TRUE,
-    seed = NULL
-  )
-
-  w_init = init_run$sample_list$w[100, ]
-
-  post_map = find_post_map(
-    M = M,
-    w = w_init,
-    stan_model = stan_model,
-    init_list = NULL,
-    lambda = lambda,
-    model_data = model_data
-  )
-
-  init_list = list(
-    w_init = w_init,
-    beta_init = cbind(post_map$par$beta, 0)
-  )
-
-  fit = single_run(
-    M = M,
-    w = NULL,
-    model_data = model_data,
-    lambda = 1,
-    init_list = init_list,
-    iters = 1000,
-    burn_in = 0,
-    thin = 1,
-    verbose = TRUE,
-    seed = NULL
-  )
-
-  fit
-
-})
-
-
-model_data$spline$dirichlet_param
-
-size = lapply(1:length(fits), function(i){
-  fits[[i]]$sample_list$w[iters,] %>% unique() %>% length()
-}) %>% do.call(c, .)
-
-logp_mode = lapply(1:length(fits), function(i){
-  w = fits[[i]]$sample_list$w[1000,]
-
-  post_map = find_post_map(
-    M = M,
-    w = w,
-    stan_model = stan_model,
-    init_list = NULL,
-    lambda = lambda,
-    model_data = model_data
-  )
-
-  post_map$par$log_like
-
-})
-
-llp = lapply(1:20, function(i){
-  fits[[i]]$sample_list$logpost[500:1000, "logpost"] %>% mean()
-}) %>% do.call(c, .)
-
-plot(size, llp)
-
-lapply(1:20, function(i){
-  compute_asw(w = fits[[i]]$sample_list$w[1000, ], z_dist = model_data$data$z_dist)
-}) %>%
-  do.call(c, .) %>%
-  plot()
-
-
-fits[[9]]$sample_list$w[1000, ] %>% sort()
-
-
-ari(compute_asw(w = fits[[i]]$sample_list$w[1000, ])
-
-
-logp = lapply(1:length(fits), function(i){
-  fits[[i]]$sample_list$logpost[iters, "logpost"]
-}) %>% do.call(c, .)
-
-lapply(1:length(fits), function(i){
-  fits[[i]]$sample_list$logpost[500:1000, "logpost"] %>% mean()
-}) %>% do.call(c, .) %>% plot()
-
-
-fits[[1]]$sample_list$w[iters, ] %>% sort()
-
-size %>% table() %>% prop.table()
-
-fits[[1]]$sample_list$beta[, 1, 1] %>% plot()
-
-w = fits[[1]]$sample_list$w[iters, ]
-
-ari(w, fits[[1]]$init$w)
-
-fits[[1]]$sample_list$logpost %>% colMeans()
-
-lapply(1:1000, function(i){
-  fits[[20]]$sample_list$w[i, ] %>% unique() %>% length()
-}) %>% do.call(c, .) %>% plot(type="l")
-
-lapply(100:1000, function(i){
-  fits[[1]]$sample_list$logpost[i, "logpost"]
-}) %>% do.call(c, .) %>% plot(type="l")
-
-lapply(10:iters, function(i){
-  fits[[1]]$sample_list$w[i, ] %>% compute_asw(model_data$data$z_dist)
-}) %>% do.call(c, .) %>% plot()
-
-fits[[1]]$sample_list$w[iters, ] %>% sort()
-
-
-size %>% table() %>% plot()
-
-w1 = fits[[3]]$sample_list$w[iters,]
-w2 = fits[[4]]$sample_list$w[iters,]
-w3 = fits[[9]]$sample_list$w[iters,]
+w1 %>% unique() %>% sort()
+w2 %>% unique() %>% sort()
+w3 %>% unique() %>% sort()
 
 ari(w1, w2)
 ari(w1, w3)
 ari(w2, w3)
 
-
-fits[[3]]$sample_list$w[iters,] %>% unique() %>% length()
-
-lapply(1:iters, function(i){
-  fit$sample_list$w[i,] %>% unique() %>% length()
-}) %>% do.call(c, .) %>% plot()
-
-
-fit$sample_list$w[iters,] %>% unique() %>% length()
-fit$sample_list$beta %>% compute_post_stat() %>% round(5)
-
-
-
+which(w1 != w2)
+fit$fit$runs[[1]]$sample_list$w[, "Brazil"]
+fit$fit$runs[[2]]$sample_list$w[, "Brazil"]
+fit$fit$runs[[3]]$sample_list$w[, "Brazil"]
 
 

@@ -155,6 +155,23 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// update_lambda_loop_cpp
+arma::vec update_lambda_loop_cpp(const arma::mat& beta, const List& idx_list, const arma::mat& s_matrix, double a_lambda, double b_lambda, int n_basis, int G);
+RcppExport SEXP _mixscat_update_lambda_loop_cpp(SEXP betaSEXP, SEXP idx_listSEXP, SEXP s_matrixSEXP, SEXP a_lambdaSEXP, SEXP b_lambdaSEXP, SEXP n_basisSEXP, SEXP GSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< const List& >::type idx_list(idx_listSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type s_matrix(s_matrixSEXP);
+    Rcpp::traits::input_parameter< double >::type a_lambda(a_lambdaSEXP);
+    Rcpp::traits::input_parameter< double >::type b_lambda(b_lambdaSEXP);
+    Rcpp::traits::input_parameter< int >::type n_basis(n_basisSEXP);
+    Rcpp::traits::input_parameter< int >::type G(GSEXP);
+    rcpp_result_gen = Rcpp::wrap(update_lambda_loop_cpp(beta, idx_list, s_matrix, a_lambda, b_lambda, n_basis, G));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_mixscat_mvrnormArma", (DL_FUNC) &_mixscat_mvrnormArma, 3},
@@ -168,6 +185,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mixscat_compute_prob_group", (DL_FUNC) &_mixscat_compute_prob_group, 3},
     {"_mixscat_predict_prob_cpp", (DL_FUNC) &_mixscat_predict_prob_cpp, 4},
     {"_mixscat_fast_aggregate_sum", (DL_FUNC) &_mixscat_fast_aggregate_sum, 2},
+    {"_mixscat_update_lambda_loop_cpp", (DL_FUNC) &_mixscat_update_lambda_loop_cpp, 7},
     {NULL, NULL, 0}
 };
 
