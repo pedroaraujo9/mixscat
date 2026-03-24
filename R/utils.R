@@ -669,28 +669,101 @@ compute_probs = function(w, M, B, beta) {
 }
 
 
-compute_beta_sd_matrix = function(model_data, lambda, M) {
 
-  S = model_data$spline$S
-  S = lambda * S
-  G = model_data$dims$G
-  S[1, 1] = model_data$spline$intercept_penalty
-
-  beta_init_sd = sqrt(1/rep(diag(S), times = M))
-
-  beta_init_sd = matrix(
-    beta_init_sd,
-    nrow = length(beta_init_sd),
-    ncol = G - 1,
-    byrow = F
-  )
-
-  return(beta_init_sd)
-}
 
 get_w_ward = function(M, z_dist) {
   w_ward_init = hclust(as.dist(z_dist), method = "ward.D") |> cutree(k = M)
   w_ward_init
 }
+
+compute_model_precision = function(model_data,
+                                   lambda,
+                                   intercept_penalty,
+                                   M) {
+  n_basis = model_data$spline$n_basis
+  S = model_data$spline$S
+  S[1, 1] = 1
+
+  if(length(lambda) == 1) {
+
+    lambda_expand = rep(lambda, M * n_basis)
+
+  }else{
+
+    lambda_expand = rep(lambda, each = n_basis)
+
+  }
+
+  s = diag(S)
+  diag_precision = rep(s, times = M) * lambda_expand
+
+  intercept_idx = seq(1, M * n_basis, by = n_basis)
+  diag_precision[intercept_idx] = intercept_penalty
+
+  return(diag_precision)
+}
+
+create_beta_precision_matrix = function(model_data,
+                                        lambda,
+                                        intercept_penalty,
+                                        M) {
+
+  diag_precision = compute_model_precision(
+    model_data = model_data,
+    lambda = lambda,
+    intercept_penalty = intercept_penalty,
+    M = M
+  )
+
+  beta_precision_matrix = diag(diag_precision)
+
+  return(beta_precision_matrix)
+
+}
+
+create_beta_sd_matrix = function(model_data,
+                                 beta_precision_matrix = NULL,
+                                 lambda,
+                                 intercept_penalty,
+                                 M) {
+
+  G = model_data$dims$G
+  n_basis = model_data$spline$n_basis
+
+  if(is.null(beta_precision_matrix)) {
+
+    diag_precision = compute_model_precision(
+      model_data = model_data,
+      lambda = lambda,
+      intercept_penalty = intercept_penalty,
+      M = M
+    )
+
+  }else{
+    diag_precision = diag(beta_precision_matrix)
+  }
+
+  beta_sd = 1/sqrt(diag_precision)
+
+  beta_sd = matrix(
+    beta_sd,
+    nrow = length(beta_sd),
+    ncol = G - 1,
+    byrow = F
+  )
+
+  return( beta_sd)
+
+}
+
+compute_entropy = function(pw, normalize = TRUE) {
+
+  h = -rowSums(pw * log(pw), na.rm = T)
+  M = ncol(pw)
+  if(normalize == TRUE) h = h/log(M)
+  return(h)
+
+}
+
 
 

@@ -5,26 +5,31 @@
 \title{Pipeline for fitting mixture of spline-based categorical distributions}
 \usage{
 pipeline(
-  model_data,
   M,
-  chains = 2,
-  iters = 1000,
-  burn_in = 500,
-  thin = 5,
+  model_data,
+  chains,
+  iters,
+  burn_in,
+  thin,
+  n_cores,
+  w = NULL,
+  pw = NULL,
   lambda = NULL,
-  init_control = list(lambda_init = 1, n_init = 5, lambda_grid = seq(from = 0.01, to = 5,
-    length.out = 30), init_iters = 10, init_burn_in = 5, init_thin = 2, init_final_run =
-    100, verbose = FALSE),
-  verbose = TRUE,
-  seed
+  a_lambda = 1,
+  b_lambda = 1,
+  intercept_penalty = 1,
+  dirichlet_param = 0.01,
+  init_list,
+  verbose,
+  seed = NULL
 )
 }
 \arguments{
+\item{M}{Integer specifying the number of mixture components (groups/clusters).}
+
 \item{model_data}{List containing the processed model data structure created by
 \code{\link{create_model_data}}. Should include response data, covariates,
 spline basis matrices, and prior specifications.}
-
-\item{M}{Integer specifying the number of mixture components (groups/clusters).}
 
 \item{chains}{Integer specifying the number of MCMC chains to run. Default is 2.
 Multiple chains are recommended for convergence assessment.}
@@ -41,6 +46,11 @@ iteration is retained. Default is 5.}
 \item{lambda}{Numeric value for the ridge regularization parameter. If NULL
 (default), lambda will be automatically calibrated using cross-validation
 across the \code{lambda_grid} values in \code{init_control}.}
+
+\item{verbose}{Logical indicating whether to print progress messages during
+execution. Default is TRUE.}
+
+\item{seed}{Integer seed for random number generation to ensure reproducibility.}
 
 \item{init_control}{List of settings controlling initialization and lambda
 calibration. Elements:
@@ -62,11 +72,6 @@ initialization run used to obtain starting values. Default is 100.}
 \item{\code{verbose}}{Logical whether to print progress during
 initialization. Default is FALSE.}
 }}
-
-\item{verbose}{Logical indicating whether to print progress messages during
-execution. Default is TRUE.}
-
-\item{seed}{Integer seed for random number generation to ensure reproducibility.}
 }
 \value{
 A list with the following components:

@@ -47,20 +47,36 @@ fit_mixscat = function(M,
                        id,
                        time,
                        n_basis,
+                       init_list,
                        iters,
                        thin,
                        burn_in,
                        chains,
+                       n_cores,
                        lambda,
+                       pw,
+                       w,
                        intercept_penalty,
                        dirichlet_param,
-                       n_init,
-                       init_mcmc_iters,
-                       n_cores,
+                       a_lambda,
+                       b_lambda,
                        seed,
                        verbose) {
 
   init_time = Sys.time()
+
+  if(!is.null(seed)) set.seed(seed)
+
+  args = list(
+    iters = iters,
+    thin = thin,
+    burn_in = burn_in,
+    chains = chains,
+    lambda = lambda,
+    intercept_penalty = intercept_penalty,
+    dirichlet_param = dirichlet_param,
+    n_cores = n_cores
+  )
 
   model_data = create_model_data(
     z = z,
@@ -71,57 +87,56 @@ fit_mixscat = function(M,
     dirichlet_param = dirichlet_param
   )
 
-  if(n_cores > 1) {
-    future::plan(future::multisession, workers = n_cores)
-  }else{
-    future::plan(future::sequential, split = TRUE)
+  if(!is.null(init_list$w)) {
+
+    stan_model = readRDS(
+      system.file("stan", "stan_full_logpost.rds", package = "mixscat")
+    )
+
+    post_map = find_post_map(
+      M = M,
+      w = init_list$w,
+      stan_model = stan_model,
+      init_list = NULL,
+      lambda = lambda,
+      intercept_penalty = intercept_penalty,
+      dirichlet_param = dirichlet_param,
+      model_data = model_data
+
+    )
+
+    init_list$beta = cbind(post_map$par$beta, 0)
+
   }
 
-  if(verbose) cat("Starting runs with", n_cores, "cores.\n")
-
-  runs = future.apply::future_lapply(
-    M,
-    function(m){
-
-      if(verbose) cat("Running for M =", m, "\n")
-
-      mixscat::pipeline(
-        model_data = model_data,
-        M = m,
-        chains = chains,
-        iters = iters,
-        burn_in = burn_in,
-        thin = thin,
-        lambda = lambda,
-        dirichlet_param = dirichlet_param,
-        seed = seed,
-        n_init = n_init,
-        init_mcmc_iters = init_mcmc_iters,
-        verbose = TRUE
-      )
-
-    },
-    future.seed = TRUE,
-    future.packages = c("Rcpp", "dplyr", "tidyr", "purrr", "posterior"),
-    future.stdout = TRUE
+  fit = pipeline(
+    M = M,
+    pw = pw,
+    w = w,
+    chains = chains,
+    n_cores = n_cores,
+    model_data = model_data,
+    lambda = lambda,
+    intercept_penalty = intercept_penalty,
+    dirichlet_param = dirichlet_param,
+    init_list = init_list,
+    iters = iters,
+    burn_in = burn_in,
+    thin = thin,
+    verbose = verbose,
+    seed = NULL
   )
 
-  names(runs) = paste0("M=", M)
-  cluster_metrics = lapply(runs, function(run) run$metrics) |> purrr::list_rbind()
-  clusters = lapply(runs, function(run) run$w) |> (\(x) do.call(cbind, x))()
-  colnames(clusters) = paste0("M=", M)
-
-  endtime = Sys.time()
-  run_time = endtime - init_time
+  run_time = Sys.time() - init_time
 
   out = list(
+    args = args,
     model_data = model_data,
-    cluster_metrics = cluster_metrics,
-    clusters = clusters,
-    fit = runs,
+    fit = fit,
     run_time = run_time
   )
 
   return(out)
+
 
 }

@@ -1,4 +1,4 @@
-update_w = function(beta, z, pw, model_data, temperature = 1) {
+update_w = function(beta, z, pw, model_data) {
 
   G = model_data$dims$G
   M = model_data$dims$M
@@ -12,32 +12,31 @@ update_w = function(beta, z, pw, model_data, temperature = 1) {
   B = model_data$spline$B
   Z = model_data$data$Z
 
-  ll = matrix(nrow = n_id, ncol = M)
+  w_post_prob = matrix(nrow = n_id, ncol = M)
 
 
   for(m in 1:M) {
 
-    idx = ((m-1)*(n_basis) + 1):(m*(n_basis))
-    beta_group = beta[idx, , drop = FALSE]
-    prob_group = compute_prob_group(B, beta_group, time_seq-1)
+    if(m == 1) {
+      beta_group = beta[1:n_basis, ]
+      prob_group = compute_prob_group(B, beta_group, time_seq-1)
+    }else{
+      idx = ((m-1)*(n_basis) + 1):(m*(n_basis))
+      beta_group = rbind(beta[1, ], beta[idx, ])
+      prob_group = compute_prob_group(cbind(1, B), beta_group, time_seq-1)
+    }
+
 
     log_pz = log(rowSums(Z * prob_group))
 
-    ll[, m] = fast_aggregate_sum(log_pz, id)[, 1] + log(pw[m])
+    w_post_prob[, m] = exp(fast_aggregate_sum(log_pz, id)[, 1]) * pw[, m]
 
   }
 
-  ll = ll - matrix(
-    mclust::logsumexp(ll), nrow = n_id, ncol = M, byrow = F
-  )
+  w_post_prob = w_post_prob / rowSums(w_post_prob)
 
-  ll = ll / temperature
-
-  w_post_prob = exp(ll)
-
-  w = as.integer(extraDistr::rcatlp(n = n_id, log_prob = ll) + 1)
+  w = as.integer(extraDistr::rcat(n = n_id, prob = w_post_prob))
   names(w) = id_unique
-
   out = list(w = w, w_post_prob = w_post_prob)
 
   return(out)

@@ -31,9 +31,12 @@ model {
 
 generated quantities {
   real log_like = categorical_logit_glm_lpmf(z | X, intercept, beta_full);
+  real log_prior = 0;
 
   for(g in 1:(G - 1)) {
-    log_like += normal_lpdf(beta[, g] | 0, sd_beta);
+    log_prior += normal_lpdf(beta[, g] | 0, sd_beta);
   }
+
+  real log_like_penal = log_like + log_prior;
 
 }

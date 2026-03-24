@@ -113,6 +113,7 @@ arma::mat predict_prob_cpp(int& M,
 
   arma::mat W = fast_dummy_dense(w, M);
   arma::mat X = arma::kron(W, B);
+  X.col(0).ones();
   arma::mat prob = sofmax_cpp(X * beta);
   return prob;
 }
@@ -135,5 +136,43 @@ arma::vec fast_aggregate_sum(arma::vec& log_pz, arma::ivec& id) {
 
   return sums;
 }
+
+
+// [[Rcpp::export]]
+arma::vec update_lambda_loop_cpp(const arma::mat& beta,
+                                 const List& idx_list,
+                                 const arma::mat& s_matrix,
+                                 double a_lambda,
+                                 double b_lambda,
+                                 int n_basis,
+                                 int G) {
+
+  int M = idx_list.size();
+  arma::vec lambda(M);
+
+  for (int m = 0; m < M; m++) {
+
+    IntegerVector idx_r = idx_list[m];
+    arma::uvec idx = Rcpp::as<arma::uvec>(idx_r);
+    idx -= 1;
+
+    arma::mat beta_m = beta.rows(idx);
+
+    double quad = arma::accu(s_matrix % arma::square(beta_m));
+    double a = a_lambda + 0.5 * (n_basis * (G - 1) - 1);
+    double b = b_lambda + 0.5 * quad;
+
+    lambda(m) = R::rgamma(a, 1.0 / b);
+  }
+
+  return lambda;
+}
+
+
+
+
+
+
+
 
 
