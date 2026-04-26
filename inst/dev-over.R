@@ -44,7 +44,6 @@ data.frame(
   geom_tile(color="black") +
   viridis::scale_fill_viridis(discrete = T)
 
-
 M_max = 15
 iters = 4000
 burn_in = 2000

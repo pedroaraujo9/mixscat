@@ -112,7 +112,7 @@ find_number_clust = function(M_max,
 
     lapply(1:init_iters, function(i){
 
-      run$sample_list$w_post_prob[i, ,] %>% compute_entropy() %>% mean()
+      run$sample_list$w_post_prob[i, ,] %>% compute_entropy() %>% sum()
 
     }) %>% do.call(c, .)
 
@@ -183,7 +183,7 @@ find_number_clust = function(M_max,
     }
 
     psm = mcclust::comp.psm(cls = w_m)
-    colnames(psm) = rownames(psm) = model_data$data$id_unique
+    colnames(psm) = rownames(psm) = id_unique
 
     cl = mcclust::maxpear(psm, cls.draw = w_m, max.k = size, method = "draws")
     w_pear = cl$cl
@@ -212,7 +212,7 @@ find_number_clust = function(M_max,
     }) %>%
       do.call(rbind, .)
 
-    rownames(w_post_prob) = model_data$data$id_unique %>% as.character()
+    rownames(w_post_prob) = id_unique
     w = w_post_prob %>% apply(MARGIN = 1, FUN = which.max)
 
     post_map = find_post_map(
@@ -254,7 +254,6 @@ find_number_clust = function(M_max,
 
   out = list(
     model_data = model_data,
-    runs = runs,
     post_modes = post_modes,
     clust_size = clust_size,
     clust_size_p = clust_size_p,

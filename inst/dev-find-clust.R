@@ -57,8 +57,8 @@ data %>%
 #### data model ####
 M = 15
 n_basis = 10
-iters = 100
-burn_in = 50
+iters = 10
+burn_in = 10
 thin = 2
 chains = 2
 seed = 1
@@ -126,24 +126,21 @@ fit = fit_overfitted_mixscat(
   verbose = TRUE
 )
 
-
-
-
-
-
-
 devtools::load_all()
 n_clust = find_number_clust(
   M_max = 15,
-  n_init = 100,
-  iters = 30,
-  lambda = NULL,
+  z = z,
+  id = id,
+  time = time,
+  n_basis = n_basis,
+  n_init = 10,
+  init_iters = 10,
+  lambda = 1,
+  dirichlet_param = 0.01,
   a_lambda = 1,
   b_lambda = 1,
-  dirichlet_param = 0.01,
   intercept_penalty = 1,
-  model_data = model_data,
-  seed = 1,
+  seed= 1,
   verbose = TRUE
 )
 
