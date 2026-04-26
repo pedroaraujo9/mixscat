@@ -29,7 +29,7 @@ update_w = function(beta, z, pw, model_data) {
 
     log_pz = log(rowSums(Z * prob_group))
 
-    w_post_prob[, m] = exp(fast_aggregate_sum(log_pz, id)[, 1]) * pw[, m]
+    w_post_prob[, m] = exp(as.numeric(rowsum(log_pz, id))) * pw[, m]
 
   }
 
